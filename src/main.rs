@@ -1,0 +1,88 @@
+// ponytail: WIP — subsystems implemented but not yet wired into `app`.
+// Remove once they're connected.
+#![allow(dead_code)]
+
+mod app;
+mod core;
+mod audio;
+mod library;
+mod database;
+mod player;
+mod playlist;
+mod queue;
+mod browser;
+mod search;
+mod config;
+mod events;
+mod commands;
+mod input;
+mod mouse;
+mod widgets;
+mod theme;
+mod ui;
+mod services;
+mod plugins;
+
+use std::panic;
+use std::path::PathBuf;
+
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .init();
+
+    let default_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        let _ = app::terminal::Terminal::teardown();
+        default_hook(info);
+    }));
+
+    let mut app = app::App::default_app();
+    app.register_builtin_plugins();
+
+    // Collect music paths from CLI args, or use defaults
+    let music_paths: Vec<PathBuf> = {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        if args.is_empty() {
+            // Default to ~/Music
+            vec![dirs::audio_dir().unwrap_or_else(|| PathBuf::from("."))]
+        } else {
+            args.into_iter().map(PathBuf::from).collect()
+        }
+    };
+
+    // Spawn the audio player
+    app.spawn_player(music_paths.clone())?;
+
+    // Start library scanner in background
+    let db_path = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("tanu")
+        .join("tanu.db");
+    if let Ok(db) = database::Database::open(&db_path) {
+        app.scan_library(db, music_paths);
+    }
+
+    // Take the router and spawn it as a background task
+    let mut router = app.take_router();
+    tokio::spawn(async move {
+        router.run().await;
+    });
+
+    // Initialize terminal and run the blocking TUI loop
+    let mut terminal = app::terminal::Terminal::new()?;
+    app::terminal::Terminal::setup()?;
+
+    let result = app.run(&mut terminal);
+
+    let _ = app.sender().send(events::Event::Quit);
+    let _ = app::terminal::Terminal::teardown();
+
+    result
+}

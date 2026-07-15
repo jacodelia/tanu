@@ -1,0 +1,69 @@
+//! Tanu Plugin Interface (WIT)
+//!
+//! This WIT file defines the contract between Tanu and WASM plugins.
+//! Plugins export lifecycle hooks; the host provides services.
+//!
+//! ## Exports (plugin implements these)
+//! - `name` → plugin name
+//! - `version` → semver version
+//! - `author` → author name
+//! - `description` → short description
+//! - `on_init` → called once after loading
+//! - `on_event` → called for each app event, returns bool (consumed?)
+//! - `on_tick` → called periodically (~1Hz)
+//! - `on_shutdown` → called before unloading
+//!
+//! ## Imports (host provides these)
+//! - `emit-event` → send event back to Tanu
+//! - `config-get` → read a config value
+//! - `store-get` / `store-set` / `store-delete` → plugin-local KV storage
+//! - `log` → write to Tanu's log
+
+interface tanu-plugin {
+    /// Called once when the plugin is loaded.
+    on-init: func();
+
+    /// Called for every application event.
+    /// `event-json` is a JSON-serialized Tanu event.
+    /// Returns 1 if the event was consumed, 0 otherwise.
+    on-event: func(event-json: string) -> u32;
+
+    /// Called periodically from the main loop.
+    on-tick: func();
+
+    /// Called before the plugin is unloaded.
+    on-shutdown: func();
+
+    /// Return the plugin's display name.
+    name: func() -> string;
+
+    /// Return the plugin's version string.
+    version: func() -> string;
+
+    /// Return the plugin's author.
+    author: func() -> string;
+
+    /// Return a short description.
+    description: func() -> string;
+}
+
+interface tanu-host {
+    /// Emit an application event (JSON-serialized).
+    emit-event: func(event-json: string);
+
+    /// Read a configuration value by key.
+    config-get: func(key: string) -> option<string>;
+
+    /// Read a value from the plugin's KV store.
+    store-get: func(key: string) -> option<string>;
+
+    /// Write a value to the plugin's KV store.
+    store-set: func(key: string, value: string);
+
+    /// Remove a key from the plugin's KV store.
+    store-delete: func(key: string);
+
+    /// Write a log message.
+    /// `level`: 0=trace, 1=debug, 2=info, 3=warn, 4=error
+    log: func(level: u32, message: string);
+}

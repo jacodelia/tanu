@@ -1,4 +1,4 @@
-# TAREA PARA CLAUDE CODE: Evolucionar `jacodelia/tanu` hacia una arquitectura Cliente/Servidor Multiusuario sobre Tailscale
+PROMPT
 
 ## Objetivo
 

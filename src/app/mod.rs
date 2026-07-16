@@ -47,9 +47,12 @@ pub struct App {
     should_quit: bool,
     mouse: crate::mouse::MouseHandler,
     viz: crate::audio::viz::AudioViz,
+    eq: crate::audio::eq::EqState,
     /// Latest playback state (from PlayerStateChanged) for smart key handling.
     playing: bool,
     volume: f32,
+    /// Path of the loaded track, tracked from PlayerStateChanged.
+    current_track: Option<String>,
 }
 
 impl App {
@@ -78,8 +81,10 @@ impl App {
             should_quit: false,
             mouse: crate::mouse::MouseHandler::new(),
             viz: crate::audio::viz::AudioViz::new(),
+            eq: crate::audio::eq::EqState::new(),
             playing: false,
             volume: 0.8,
+            current_track: None,
         }
     }
 
@@ -121,8 +126,12 @@ impl App {
         screen.add_widget(Box::new(browser), Slot::MainLeft);
         screen.set_focus(Some(browser_id));
 
-        // Oscilloscope visualizer strip, wired to the shared audio buffer.
+        // Shared audio buffer feeds the visualizer; shared EQ state drives the
+        // graphic equalizer (which modifies the sound).
         let viz = crate::audio::viz::AudioViz::new();
+        let eq_state = crate::audio::eq::EqState::new();
+        let eq = crate::widgets::equalizer::Equalizer::new(eq_state.clone());
+        screen.add_widget(Box::new(eq), Slot::Eq);
         let scope = crate::widgets::oscilloscope::Oscilloscope::new(viz.clone());
         screen.add_widget(Box::new(scope), Slot::MainRight);
 
@@ -140,6 +149,7 @@ impl App {
 
         let mut app = Self::new(screen, input_handler, commands);
         app.viz = viz;
+        app.eq = eq_state;
         app
     }
 
@@ -235,9 +245,15 @@ impl App {
                 // Play a specific file: replace the queue with it and play.
                 if let Event::PlayPath(path) = &event {
                     let p = PathBuf::from(path);
-                    let _ = cmd_tx_clone.send(PlayerCommand::ClearQueue);
-                    let _ = cmd_tx_clone.send(PlayerCommand::Enqueue(p));
-                    if cmd_tx_clone.send(PlayerCommand::Play).is_err() {
+                    if cmd_tx_clone.send(PlayerCommand::SetQueue(vec![p], 0)).is_err() {
+                        break;
+                    }
+                    continue;
+                }
+                // Play a directory's media files, starting at `index`.
+                if let Event::PlayQueue(paths, index) = &event {
+                    let ps: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+                    if cmd_tx_clone.send(PlayerCommand::SetQueue(ps, *index)).is_err() {
                         break;
                     }
                     continue;
@@ -269,8 +285,9 @@ impl App {
         // the thread.
         let paths = paths.clone();
         let viz = self.viz.clone();
+        let eq = self.eq.clone();
         std::thread::spawn(move || {
-            let backend = match RodioBackend::new(viz) {
+            let backend = match RodioBackend::new(viz, eq) {
                 Ok(b) => Box::new(b),
                 Err(e) => {
                     tracing::error!("Failed to create audio backend: {}", e);
@@ -362,17 +379,34 @@ impl App {
         }
     }
 
-    /// The file currently selected in the explorer, if it is a playable file.
-    fn selected_browser_file(&mut self) -> Option<PathBuf> {
+    /// Move the explorer cursor onto the now-playing track.
+    fn follow_now_playing(&mut self, path: &std::path::Path) {
+        if let Some(w) = self.screen.widget_at_mut(Slot::MainLeft) {
+            let any = w.as_mut() as &mut dyn Any;
+            if let Some(browser) = any.downcast_mut::<BrowserView>() {
+                browser.select_path(path);
+            }
+        }
+    }
+
+    /// Show "artist / title" (from tags, else the filename) in the status bar.
+    fn set_now_playing_status(&mut self, path: &std::path::Path) {
+        let text = now_playing_text(path);
+        if let Some(w) = self.screen.widget_at_mut(Slot::StatusBar) {
+            let any = w.as_mut() as &mut dyn Any;
+            if let Some(sb) = any.downcast_mut::<crate::widgets::status_bar::StatusBar>() {
+                sb.set_now_playing(text);
+            }
+        }
+    }
+
+    /// Ordered media files of the selected file's directory + its index,
+    /// so «/» navigate within that directory.
+    fn selected_media_queue(&mut self) -> Option<(Vec<String>, usize)> {
         let widget = self.screen.widget_at_mut(Slot::MainLeft)?;
         let any = widget.as_mut() as &mut dyn Any;
         let browser = any.downcast_mut::<BrowserView>()?;
-        let path = browser.selected_path()?.clone();
-        if path.is_file() {
-            Some(path)
-        } else {
-            None
-        }
+        browser.selected_media_queue()
     }
 
     /// Point the browser at a new directory (library folder change).
@@ -555,6 +589,17 @@ impl App {
                     Event::PlayerStateChanged(ref state) => {
                         self.playing = state.is_playing;
                         self.volume = state.volume;
+                        // Track changed (next/prev/auto-advance): refresh art,
+                        // follow the tree cursor, and update the status bar.
+                        if state.current_path != self.current_track {
+                            self.current_track = state.current_path.clone();
+                            if let Some(p) = self.current_track.clone() {
+                                let path = PathBuf::from(&p);
+                                self.update_album_art(&path);
+                                self.follow_now_playing(&path);
+                                self.set_now_playing_status(&path);
+                            }
+                        }
                         let _ = self.screen.handle_event(&ev);
                     }
                     Event::LibraryScanStarted
@@ -1064,11 +1109,11 @@ impl App {
                 }
             }
             "smart_play_pause" => {
-                if self.playing {
+                if self.playing || self.current_track.is_some() {
+                    // Playing → pause; stopped/paused with a loaded track → (re)play same.
                     let _ = self.event_tx.send(Event::TogglePlayPause);
-                } else if let Some(path) = self.selected_browser_file() {
-                    let _ = self.event_tx.send(Event::PlayPath(path.to_string_lossy().to_string()));
-                    self.update_album_art(&path);
+                } else if let Some((paths, index)) = self.selected_media_queue() {
+                    let _ = self.event_tx.send(Event::PlayQueue(paths, index));
                 } else {
                     let _ = self.event_tx.send(Event::TogglePlayPause);
                 }
@@ -1150,6 +1195,24 @@ impl App {
     pub fn quit(&mut self) {
         self.should_quit = true;
     }
+}
+
+/// "artist / title" from the file's tags, falling back to the filename.
+fn now_playing_text(path: &std::path::Path) -> String {
+    use lofty::file::TaggedFileExt;
+    use lofty::tag::Accessor;
+    if let Ok(tagged) = lofty::read_from_path(path) {
+        if let Some(tag) = tagged.primary_tag().or_else(|| tagged.first_tag()) {
+            match (tag.artist(), tag.title()) {
+                (Some(a), Some(t)) => return format!("{} / {}", a, t),
+                (None, Some(t)) => return t.to_string(),
+                _ => {}
+            }
+        }
+    }
+    path.file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

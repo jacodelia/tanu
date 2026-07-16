@@ -19,6 +19,8 @@ const RING_CAP: usize = 1024;
 struct Inner {
     ring: VecDeque<f32>,
     active: bool,
+    /// Effective sample rate of the ring (original rate / DECIMATE).
+    rate: f64,
 }
 
 /// Cloneable handle to the shared visualization state.
@@ -39,6 +41,20 @@ impl AudioViz {
 
     pub fn set_active(&self, active: bool) {
         self.0.lock().unwrap().active = active;
+    }
+
+    /// Set the effective sample rate of the ring buffer.
+    pub fn set_rate(&self, rate: f64) {
+        self.0.lock().unwrap().rate = rate;
+    }
+
+    pub fn rate(&self) -> f64 {
+        self.0.lock().unwrap().rate
+    }
+
+    /// Snapshot of the current ring samples (for spectrum analysis).
+    pub fn raw_window(&self) -> Vec<f32> {
+        self.0.lock().unwrap().ring.iter().copied().collect()
     }
 
     pub fn on_stop(&self) {
@@ -105,6 +121,7 @@ where
 {
     pub fn new(inner: S, viz: AudioViz) -> Self {
         let channels = inner.channels().max(1) as usize;
+        viz.set_rate(inner.sample_rate() as f64 / DECIMATE as f64);
         Self {
             inner,
             viz,

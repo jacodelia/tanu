@@ -24,6 +24,8 @@ pub enum Event {
     Play,
     /// Play a specific file path immediately (clears queue, enqueues, plays).
     PlayPath(String),
+    /// Replace the queue with `paths` and start playing at `index`.
+    PlayQueue(Vec<String>, usize),
     Pause,
     TogglePlayPause,
     Stop,
@@ -175,6 +177,8 @@ pub struct PlayerState {
     pub volume: f32,
     pub shuffle: bool,
     pub repeat: RepeatMode,
+    /// Path of the track currently loaded, for the UI (album art, etc.).
+    pub current_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -201,6 +205,7 @@ impl Event {
             Event::CommandResult { .. } => "CommandResult",
             Event::Play => "Play",
             Event::PlayPath(_) => "PlayPath",
+            Event::PlayQueue(_, _) => "PlayQueue",
             Event::Pause => "Pause",
             Event::TogglePlayPause => "TogglePlayPause",
             Event::Stop => "Stop",
@@ -277,6 +282,7 @@ mod tests {
             volume: 1.0,
             shuffle: false,
             repeat: RepeatMode::Off,
+            current_path: None,
         };
         assert!(!state.is_playing);
         assert_eq!(state.volume, 1.0);

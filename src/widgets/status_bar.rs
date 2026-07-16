@@ -19,6 +19,7 @@ pub struct StatusBar {
     is_playing: bool,
     volume: f32,
     shuffle: bool,
+    now_playing: String,
 }
 
 impl StatusBar {
@@ -32,7 +33,14 @@ impl StatusBar {
             is_playing: false,
             volume: 0.8,
             shuffle: false,
+            now_playing: String::new(),
         }
+    }
+
+    /// Set the "artist / title" text shown for the current track.
+    pub fn set_now_playing(&mut self, text: impl Into<String>) {
+        self.now_playing = text.into();
+        self.dirty = true;
     }
 
     fn mode_name(&self) -> &str {
@@ -112,6 +120,11 @@ impl Widget for StatusBar {
         let play_icon = if self.is_playing { "[>]" } else { "[||]" };
         let shuffle_icon = if self.shuffle { "[S]" } else { "" };
         let vol_text = format!("vol:{}% ", (self.volume * 100.0) as u8);
+        let now = if self.now_playing.is_empty() {
+            "Tanu — Terminal Audio Navigator & Utility".to_string()
+        } else {
+            format!("♪ {}", self.now_playing)
+        };
 
         let line = Line::from(vec![
             Span::styled(format!(" {} ", self.mode_name()), mode_style),
@@ -121,7 +134,7 @@ impl Widget for StatusBar {
             Span::raw(shuffle_icon),
             Span::raw(" "),
             Span::raw(vol_text),
-            Span::raw("Tanu — Terminal Audio Navigator & Utility"),
+            Span::styled(now, Style::default().fg(Color::Rgb(166, 227, 161))),
         ]);
 
         let paragraph = Paragraph::new(line)

@@ -458,8 +458,11 @@ pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
     let show_command = area.height >= 14;
     let deck_h = 7u16; // border + 3 key rows + progress + volume
     let scope_h = 7u16;
+    let eq_h = 7u16; // same size as the scope
     // Right column (album art + scope) only when there's room.
     let show_right = area.width >= 70 && area.height >= 16;
+    // Equalizer between art and scope only on taller screens.
+    let show_eq = area.height >= 26;
 
     // Outer vertical bands: menu, main, deck, status, [command].
     let mut vbands: Vec<(Slot, Constraint)> = vec![
@@ -493,12 +496,19 @@ pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
             .constraints([Constraint::Fill(62), Constraint::Fill(38)])
             .split(main_band);
         out.push((Slot::MainLeft, cols[0]));
+        // Right column: album art (fills) · [equalizer] · oscilloscope.
+        let mut rc: Vec<(Slot, Constraint)> = vec![(Slot::SearchBar, Constraint::Fill(1))];
+        if show_eq {
+            rc.push((Slot::Eq, Constraint::Length(eq_h)));
+        }
+        rc.push((Slot::MainRight, Constraint::Length(scope_h)));
         let right = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Fill(1), Constraint::Length(scope_h)])
+            .constraints(rc.iter().map(|(_, c)| *c).collect::<Vec<_>>())
             .split(cols[1]);
-        out.push((Slot::SearchBar, right[0])); // album art
-        out.push((Slot::MainRight, right[1])); // oscilloscope
+        for (i, (slot, _)) in rc.iter().enumerate() {
+            out.push((*slot, right[i]));
+        }
     } else {
         // Narrow: browser fills the main band; no art/scope.
         out.push((Slot::MainLeft, main_band));
@@ -647,8 +657,9 @@ mod tests {
     fn test_responsive_drops_slots_on_small_screen() {
         let mgr = LayoutManager::new();
         // Full screen: all 7 default slots.
+        // Tall: menu, browser, deck, status, command + album art, eq, scope = 8.
         let big = mgr.compute_regions(Rect { x: 0, y: 0, width: 80, height: 40 });
-        assert_eq!(big.len(), 7);
+        assert_eq!(big.len(), 8);
         // Narrow screen (5" style): right column (album art + scope) dropped.
         let small = mgr.compute_regions(Rect { x: 0, y: 0, width: 60, height: 16 });
         let slots: Vec<Slot> = small.iter().map(|(s, _)| *s).collect();

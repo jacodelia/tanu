@@ -1,6 +1,6 @@
-# tanu
+# Tanu
 
-![tanu](docs/tanu.jpg)
+![Tanu](docs/tanu.jpg) photo by [Ebustos](https://estebanbustos.com/products/tanu?srsltid=AfmBOoozUW3g4BeDI7p6OIXNbmj2xMCP4DwPspE4_uUeaysFOH-MX1nU)
 
 A terminal music player written in Rust — a file-browser–first player inspired
 by [cmus](https://cmus.github.io/), with a [ratune](https://github.com/acmagn/ratune)-style
@@ -12,30 +12,35 @@ from the actual audio, see the embedded album art, and drive everything from a
 radio-cassette transport deck — keyboard or mouse.
 
 ```
-┌ FILE  EDIT  ABOUT              ♪ tanu ──────────────────────────────┐
+┌ FILE  EDIT  ABOUT             ───────────────────────────| ♪ Tanu |──┐
 │ 🗀 ~/Music                          │ ♫ Cover                        │
-│ ⤴  ..                               │  ▄▄▄▄▄▄▄▄▄▄▄▄                   │
+│ ⤴  ..                               │  ▄▄▄▄▄▄▄▄▄▄▄▄                  │
 │ ▸  Albums                           │  ██ album art ██               │
 │ ▶ ♪ track-01.flac                   ├────────────────────────────────┤
-│   ♪ track-02.flac                   │ Oscilloscope ▶  /\  /\  /\      │
-│   ...                               │               /  \/  \/  \     │
+│   ♪ track-02.flac                   │ ≣ Equalizer · 12  ▄█▆▃▅█▇▂▄▆█▅ │
+│   ...                               ├────────────────────────────────┤
+│                                     │ Oscilloscope ▶  /\  /\  /\     │
 ├─────────────────────────────────────┴────────────────────────────────┤
-│ ▚ TAPE DECK ▞                                                         │
-│  ╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗                                       │
+│ ▚ TAPE DECK ▞                                                        │
+│  ╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗                                      │
 │  ║ ◀◀║║ ▶ ║║ ■ ║║ ▶▶║║ ⇄ ║║ ↻ ║   00:42 ██████░░░░░ 03:15            │
-│  ╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝    VOL ▐▓▓▓▓░░░▌  80%                 │
-└───────────────────────────────────────────────────────────────────────┘
+│  ╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝    VOL ▐▓▓▓▓░░░▌  80%                │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
-- **File explorer** — `..` parent nav, directories first, icons, selection
-  marker, incremental search, hidden-file toggle. Keyboard + mouse.
+- **File explorer** — an expandable directory tree (dirs expand in place),
+  media files only, icons, selection marker, incremental search, hidden-file
+  toggle. Keyboard + mouse. Playing a file queues its folder in tree order so
+  Prev/Next step through it.
 - **Instant playback** — streaming decode via rodio; playback starts in
   microseconds (no full-file decode up front).
 - **Real oscilloscope** — waveform drawn from the samples actually playing.
-- **Album art** — embedded cover rendered as half-block mosaic (no image
-  protocol needed; works in any terminal).
+- **12-band equalizer** — Goertzel spectrum analyzer with smoothed, color-graded
+  bars, between the cover and the scope.
+- **Album art** — embedded cover rendered as a half-block mosaic, aspect-preserved
+  and Lanczos3-scaled (no image protocol needed; works in any terminal).
 - **Radio-cassette transport deck** — prev / play-pause / stop / next /
   shuffle / repeat, progress bar, and a horizontal volume bar. All clickable.
 - **Menus** — FILE (open / library folder / scan / quit), EDIT (sound source),
@@ -63,8 +68,10 @@ terminal). Follow them with `tail -f ~/.local/share/tanu/tanu.log`.
 | Key | Action |
 |-----|--------|
 | `↑`/`k`, `↓`/`j` | Move selection |
-| `→`/`l`/`Enter` | Enter directory / play file |
-| `←`/`h`/`Backspace` | Parent directory |
+| `→`/`l` | Expand directory / descend |
+| `Enter` | Toggle directory / play file |
+| `←`/`h`/`Backspace` | Collapse directory / go to parent |
+| `◀◀` / `▶▶` (or Prev/Next) | Previous / next media file in the folder |
 | `Space` | Play selected (if idle) / pause-resume |
 | `+` / `=` / `-` | Volume up / down |
 | `/` | Incremental search (Esc cancels, Enter keeps filter) |
@@ -106,4 +113,4 @@ See [`docs/roadmap.md`](docs/roadmap.md) for what's done and what's next, and
 
 ## License
 
-See repository.
+[MIT](LICENSE)

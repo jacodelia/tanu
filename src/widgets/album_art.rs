@@ -122,21 +122,36 @@ fn track_caption(path: &PathBuf) -> String {
         .unwrap_or_default()
 }
 
-/// Render an image to `w`×`h` cells using `▀` (top pixel = fg, bottom = bg).
+/// Render an image using `▀` half-blocks (top pixel = fg, bottom = bg), giving
+/// two vertical pixels per cell. Aspect ratio is preserved (the cover is
+/// centered, letterboxed) and downscaled with Lanczos3 for a crisp result.
 fn render_halfblocks(img: &image::DynamicImage, w: u16, h: u16) -> Vec<Line<'static>> {
     use image::imageops::FilterType;
-    let px_w = w as u32;
-    let px_h = (h as u32) * 2;
-    if px_w == 0 || px_h == 0 {
+    let canvas_w = w as u32;
+    let canvas_h = (h as u32) * 2; // two pixels per text row
+    if canvas_w == 0 || canvas_h == 0 {
         return Vec::new();
     }
-    let rgb = img.resize_exact(px_w, px_h, FilterType::Triangle).to_rgb8();
+    // resize() keeps aspect ratio, fitting inside the canvas.
+    let rgb = img.resize(canvas_w, canvas_h, FilterType::Lanczos3).to_rgb8();
+    let (iw, ih) = rgb.dimensions();
+    let ox = (canvas_w.saturating_sub(iw)) / 2;
+    let oy = (canvas_h.saturating_sub(ih)) / 2;
+    let bg = [24u8, 24, 37];
+    let pixel = |cx: u32, cy: u32| -> [u8; 3] {
+        if cx >= ox && cx < ox + iw && cy >= oy && cy < oy + ih {
+            rgb.get_pixel(cx - ox, cy - oy).0
+        } else {
+            bg
+        }
+    };
+
     let mut lines = Vec::with_capacity(h as usize);
-    for row in 0..h {
+    for row in 0..h as u32 {
         let mut spans = Vec::with_capacity(w as usize);
-        for col in 0..w {
-            let top = rgb.get_pixel(col as u32, (row as u32) * 2).0;
-            let bottom = rgb.get_pixel(col as u32, (row as u32) * 2 + 1).0;
+        for col in 0..w as u32 {
+            let top = pixel(col, row * 2);
+            let bottom = pixel(col, row * 2 + 1);
             spans.push(Span::styled(
                 "▀",
                 Style::default()

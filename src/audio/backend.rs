@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 
+use super::eq::{EqSource, EqState};
 use super::viz::{AudioViz, TappedSource};
 use crate::player::AudioBackend;
 
@@ -34,15 +35,17 @@ pub struct RodioBackend {
     handle: OutputStreamHandle,
     inner: Mutex<RodioInner>,
     viz: AudioViz,
+    eq: EqState,
 }
 
 impl RodioBackend {
-    pub fn new(viz: AudioViz) -> anyhow::Result<Self> {
+    pub fn new(viz: AudioViz, eq: EqState) -> anyhow::Result<Self> {
         let (stream, handle) = OutputStream::try_default()?;
         Ok(Self {
             stream,
             handle,
             viz,
+            eq,
             inner: Mutex::new(RodioInner {
                 sink: None,
                 current_duration: 0.0,
@@ -71,7 +74,9 @@ impl AudioBackend for RodioBackend {
         let file = File::open(path)?;
         let decoder = Decoder::new(BufReader::new(file))?;
         self.viz.on_play();
-        let source = TappedSource::new(decoder, self.viz.clone());
+        // Chain: decode → EQ (modifies sound) → tap (viz shows post-EQ audio).
+        let eqd = EqSource::new(decoder, self.eq.clone());
+        let source = TappedSource::new(eqd, self.viz.clone());
 
         let sink = Sink::try_new(&self.handle)?;
         sink.set_volume(self.inner.lock().unwrap().volume);
@@ -170,5 +175,10 @@ impl AudioBackend for RodioBackend {
                 .as_ref()
                 .map(|s| !s.empty())
                 .unwrap_or(false)
+    }
+
+    fn is_paused(&self) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.paused && inner.sink.is_some()
     }
 }

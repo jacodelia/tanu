@@ -92,5 +92,6 @@ pub mod tabs;
 pub mod menu_bar;
 pub mod oscilloscope;
 pub mod album_art;
+pub mod equalizer;
 pub mod search_bar;
 pub mod command_bar;

@@ -28,6 +28,8 @@ pub enum PlayerCommand {
     SetRepeat(RepeatMode),
     Enqueue(PathBuf),
     ClearQueue,
+    /// Replace the queue with these paths and play at the given index.
+    SetQueue(Vec<PathBuf>, usize),
     Quit,
 }
 
@@ -42,6 +44,8 @@ pub trait AudioBackend {
     fn position(&self) -> f64;
     fn duration(&self) -> f64;
     fn is_playing(&self) -> bool;
+    /// Whether a track is loaded but paused (distinct from stopped).
+    fn is_paused(&self) -> bool;
 }
 
 /// A stub backend for testing.
@@ -81,6 +85,9 @@ impl AudioBackend for StubAudioBackend {
     fn is_playing(&self) -> bool {
         self.playing
     }
+    fn is_paused(&self) -> bool {
+        false
+    }
 }
 
 /// The player engine: manages playback state, a path-based queue,
@@ -105,6 +112,7 @@ impl Player {
                 volume: 0.8,
                 shuffle: false,
                 repeat: RepeatMode::Off,
+                current_path: None,
             },
             queue: Vec::new(),
             queue_position: 0,
@@ -123,20 +131,30 @@ impl Player {
 
     fn play_current(&mut self) -> anyhow::Result<()> {
         if let Some(path) = self.queue.get(self.queue_position) {
+            self.state.current_path = Some(path.to_string_lossy().to_string());
             self.backend.play(path)?;
             self.state.is_playing = true;
         }
         Ok(())
     }
 
+    /// Replace the queue and start playing at `index`.
+    fn set_queue(&mut self, paths: Vec<PathBuf>, index: usize) {
+        self.queue = paths;
+        self.queue_position = index.min(self.queue.len().saturating_sub(1));
+        let _ = self.play_current();
+    }
+
     fn toggle_play_pause(&mut self) -> anyhow::Result<()> {
         if self.backend.is_playing() {
             self.backend.pause();
             self.state.is_playing = false;
-        } else if self.queue.get(self.queue_position).is_some() {
+        } else if self.backend.is_paused() {
+            // Paused mid-track: resume.
             self.backend.resume();
             self.state.is_playing = true;
-        } else if !self.queue.is_empty() {
+        } else if self.queue.get(self.queue_position).is_some() {
+            // Stopped or fresh: (re)play the current queue entry.
             self.play_current()?;
         }
         Ok(())
@@ -239,6 +257,7 @@ impl Player {
             duration_secs: dur,
             is_playing: playing,
             volume: self.volume,
+            current_path: self.state.current_path.clone(),
             ..self.state
         }
     }
@@ -294,6 +313,9 @@ impl Player {
                 Ok(PlayerCommand::ClearQueue) => {
                     self.clear_queue();
                 }
+                Ok(PlayerCommand::SetQueue(paths, index)) => {
+                    self.set_queue(paths, index);
+                }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     // Tick: emit current state
                 }
@@ -342,6 +364,29 @@ mod tests {
         assert_eq!(player.queue.len(), 1);
         player.clear_queue();
         assert!(player.queue.is_empty());
+    }
+
+    #[test]
+    fn test_stop_preserves_queue_and_position() {
+        let mut player = test_player();
+        let q = vec![PathBuf::from("/a.mp3"), PathBuf::from("/b.mp3"), PathBuf::from("/c.mp3")];
+        player.set_queue(q, 1);
+        assert_eq!(player.queue_position, 1);
+        assert_eq!(player.state.current_path.as_deref(), Some("/b.mp3"));
+
+        // Stop keeps the queue + position (so Play replays, Next/Prev step).
+        player.stop();
+        assert_eq!(player.queue.len(), 3);
+        assert_eq!(player.queue_position, 1);
+
+        // After stop, Next → the following track in the directory order.
+        let _ = player.next();
+        assert_eq!(player.queue_position, 2);
+        assert_eq!(player.state.current_path.as_deref(), Some("/c.mp3"));
+
+        // Previous walks back.
+        let _ = player.previous();
+        assert_eq!(player.queue_position, 1);
     }
 
     #[test]

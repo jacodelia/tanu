@@ -29,6 +29,8 @@ pub enum Slot {
     ProgressBar,
     StatusBar,
     CommandBar,
+    /// Equalizer / spectrum panel (right column, between art and scope).
+    Eq,
 }
 
 /// The screen divides the terminal into regions and manages widgets.

@@ -25,6 +25,8 @@ pub struct ContextMenu {
     /// Position where menu should appear (screen coords).
     screen_x: u16,
     screen_y: u16,
+    /// When set, the menu is centered on screen and shows this title.
+    modal_title: Option<String>,
 }
 
 impl ContextMenu {
@@ -39,6 +41,7 @@ impl ContextMenu {
             selected_index: 0,
             screen_x: 0,
             screen_y: 0,
+            modal_title: None,
         }
     }
 
@@ -48,6 +51,16 @@ impl ContextMenu {
         self.screen_x = x;
         self.screen_y = y;
         self.visible = true;
+        self.modal_title = None;
+        self.dirty = true;
+    }
+
+    /// Show a centered modal menu with a title bar.
+    pub fn show_modal(&mut self, title: &str, items: Vec<MenuItem>) {
+        self.items = items;
+        self.selected_index = 0;
+        self.visible = true;
+        self.modal_title = Some(title.to_string());
         self.dirty = true;
     }
 
@@ -65,15 +78,28 @@ impl ContextMenu {
     }
 
     fn menu_height(&self) -> u16 {
-        (self.items.len() as u16 + 2).min(20)
+        let title = if self.modal_title.is_some() { 1 } else { 0 };
+        (self.items.len() as u16 + 2 + title).min(22)
+    }
+
+    /// Row offset (within the menu) where item 0 begins: 1 for the top border,
+    /// +1 more when a modal title bar is shown.
+    fn items_top_offset(&self) -> u16 {
+        1 + if self.modal_title.is_some() { 1 } else { 0 }
     }
 
     fn menu_width(&self) -> u16 {
-        self.items.iter()
-            .map(|i| i.label.len())
-            .max()
-            .unwrap_or(10) as u16 + 4
+        let items = self.items.iter().map(|i| i.label.chars().count()).max().unwrap_or(10);
+        let title = self.modal_title.as_ref().map(|t| t.chars().count()).unwrap_or(0);
+        // +2 swatch, +4 borders/prefix.
+        items.max(title) as u16 + 6
     }
+}
+
+/// If the command is `text_color:#hex`, return the swatch color.
+fn item_color(command: &str) -> Option<Color> {
+    command.strip_prefix("text_color:")
+        .and_then(crate::theme::parse_color)
 }
 
 impl Widget for ContextMenu {
@@ -134,8 +160,8 @@ impl Widget for ContextMenu {
                         self.hide();
                         return EventResult::NotConsumed;
                     }
-                    // Click on an item row (row 0 is the top border): activate it.
-                    let row = my.saturating_sub(self.screen_y + 1) as usize;
+                    // Click on an item row (top border + optional title first).
+                    let row = my.saturating_sub(self.screen_y + self.items_top_offset()) as usize;
                     if row < self.items.len() {
                         self.selected_index = row;
                         let cmd = self.items[row].command.clone();
@@ -174,9 +200,15 @@ impl Widget for ContextMenu {
             return;
         }
 
-        let w = self.menu_width().min(area.width.saturating_sub(self.screen_x));
-        let h = self.menu_height().min(area.height.saturating_sub(self.screen_y));
+        let w = self.menu_width().min(area.width);
+        let h = self.menu_height().min(area.height);
 
+        // Modal: centered; otherwise anchored at the click position. Store the
+        // resolved top-left so mouse hit-testing (next frame) matches the draw.
+        if self.modal_title.is_some() {
+            self.screen_x = area.x + area.width.saturating_sub(w) / 2;
+            self.screen_y = area.y + area.height.saturating_sub(h) / 2;
+        }
         let menu_rect = Rect {
             x: self.screen_x.min(area.width.saturating_sub(w)),
             y: self.screen_y.min(area.height.saturating_sub(h)),
@@ -184,27 +216,41 @@ impl Widget for ContextMenu {
             height: h,
         };
 
-        let border_color = Color::Rgb(137, 180, 250);
-        let block = Block::default()
+        let border_color = crate::theme::border_focused();
+        let mut block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
             .style(Style::default().bg(Color::Rgb(30, 30, 46)));
+        if let Some(ref title) = self.modal_title {
+            block = block.title(Span::styled(
+                format!(" {} ", title),
+                Style::default().fg(crate::theme::primary()).add_modifier(ratatui::style::Modifier::BOLD),
+            ));
+        }
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(137, 180, 250));
-        let normal_style = Style::default().fg(Color::Rgb(205, 214, 244));
+        let highlight_bg = crate::theme::border_focused();
+        let normal_fg = Color::Rgb(205, 214, 244);
 
-        let lines: Vec<Line> = self.items.iter()
-            .enumerate()
-            .map(|(i, item)| {
-                let prefix = if i == self.selected_index { "▶ " } else { "  " };
-                let text = format!("{}{}", prefix, item.label);
-                if i == self.selected_index {
-                    Line::from(Span::styled(text, highlight_style))
-                } else {
-                    Line::from(Span::styled(text, normal_style))
-                }
-            })
-            .collect();
+        let mut lines: Vec<Line> = Vec::with_capacity(self.items.len() + 1);
+        if self.modal_title.is_some() {
+            lines.push(Line::from("")); // spacer under the title bar
+        }
+        for (i, item) in self.items.iter().enumerate() {
+            let selected = i == self.selected_index;
+            let prefix = if selected { "▶ " } else { "  " };
+            let mut spans = vec![Span::raw(prefix.to_string())];
+            // Colored swatch for palette items (text_color:#hex).
+            if let Some(c) = item_color(&item.command) {
+                spans.push(Span::styled("● ", Style::default().fg(c)));
+            }
+            let label_style = if selected {
+                Style::default().fg(Color::Rgb(30, 30, 46)).bg(highlight_bg).add_modifier(ratatui::style::Modifier::BOLD)
+            } else {
+                Style::default().fg(item_color(&item.command).unwrap_or(normal_fg))
+            };
+            spans.push(Span::styled(item.label.clone(), label_style));
+            lines.push(Line::from(spans));
+        }
 
         let paragraph = Paragraph::new(lines).block(block);
         frame.render_widget(Clear, menu_rect);

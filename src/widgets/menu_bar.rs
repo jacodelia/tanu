@@ -48,13 +48,15 @@ impl MenuBar {
     }
 
     /// Build spans and record hit regions. Returns the assembled line.
-    fn build(&mut self) -> Line<'static> {
+    /// `width` right-aligns the `♪ Tanu` brand to the far right of the bar.
+    fn build(&mut self, width: u16) -> Line<'static> {
         self.segments.clear();
         let mut spans: Vec<Span> = Vec::new();
         let mut x: u16 = 0;
 
         let menu_style = Style::default().fg(Color::Rgb(205, 214, 244)).bg(Color::Rgb(49, 50, 68));
-        let brand_style = Style::default().fg(Color::Rgb(203, 166, 247)).bg(Color::Rgb(49, 50, 68));
+        let brand_style = Style::default().fg(crate::theme::primary()).bg(Color::Rgb(49, 50, 68)).add_modifier(ratatui::style::Modifier::BOLD);
+        let sep_style = Style::default().fg(Color::Rgb(108, 112, 134)).bg(Color::Rgb(49, 50, 68));
 
         let push = |spans: &mut Vec<Span>, segments: &mut Vec<Segment>, x: &mut u16, text: String, style: Style, command: String| {
             let start = *x;
@@ -70,7 +72,14 @@ impl MenuBar {
             x += 1;
         }
 
-        spans.push(Span::styled("   ♪ tanu", brand_style));
+        // Right-aligned brand: pad the gap, then "| ♪ Tanu |".
+        let brand = "| ♪ Tanu |";
+        let brand_w = brand.chars().count() as u16;
+        if width > x + brand_w {
+            let pad = width - x - brand_w;
+            spans.push(Span::styled(" ".repeat(pad as usize), sep_style));
+        }
+        spans.push(Span::styled(brand.to_string(), brand_style));
 
         Line::from(spans)
     }
@@ -119,7 +128,7 @@ impl Widget for MenuBar {
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let line = self.build();
+        let line = self.build(area.width);
         let bar_bg = Style::default().bg(Color::Rgb(49, 50, 68));
         let paragraph = Paragraph::new(line).style(bar_bg);
         frame.render_widget(paragraph, area);
@@ -134,7 +143,7 @@ mod tests {
     fn test_click_maps_to_command() {
         let mut bar = MenuBar::new();
         // Build regions (render path) with a dummy area via build().
-        let _ = bar.build();
+        let _ = bar.build(80);
         // FILE label starts at column 0 (" FILE ").
         let cmd = bar.command_at(1).unwrap();
         assert_eq!(cmd, "menu:file:0");
@@ -143,7 +152,7 @@ mod tests {
     #[test]
     fn test_about_segment() {
         let mut bar = MenuBar::new();
-        let _ = bar.build();
+        let _ = bar.build(80);
         let seg = bar.segments.iter().find(|s| s.command == "about").unwrap();
         let mid = (seg.start + seg.end) / 2;
         assert_eq!(bar.command_at(mid).unwrap(), "about");

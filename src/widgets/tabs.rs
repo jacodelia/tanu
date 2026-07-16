@@ -80,7 +80,7 @@ impl Widget for Tabs {
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let active_style = Style::default()
             .fg(Color::Rgb(30, 30, 46))
-            .bg(Color::Rgb(203, 166, 247));
+            .bg(crate::theme::primary());
         let inactive_style = Style::default()
             .fg(Color::Rgb(108, 112, 134))
             .bg(Color::Rgb(49, 50, 68));

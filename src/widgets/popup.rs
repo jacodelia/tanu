@@ -195,7 +195,7 @@ impl Widget for Popup {
             PopupType::Error => Color::Rgb(243, 139, 168),
             PopupType::Confirm => Color::Rgb(249, 226, 175),
             PopupType::Input => Color::Rgb(166, 227, 161),
-            _ => Color::Rgb(137, 180, 250),
+            _ => crate::theme::border_focused(),
         };
 
         let block = Block::default()

@@ -193,11 +193,11 @@ impl Widget for Oscilloscope {
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let border_color = if self.focused { Color::Rgb(137, 180, 250) } else { Color::Rgb(69, 71, 90) };
+        let border_color = if self.focused { crate::theme::border_focused() } else { crate::theme::border() };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(" Visualizer ", Style::default().fg(Color::Rgb(203, 166, 247)).add_modifier(Modifier::BOLD)));
+            .title(Span::styled(" Visualizer ", Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)));
         let inner = block.inner(area);
         frame.render_widget(block, area);
         if inner.width == 0 || inner.height == 0 {
@@ -205,7 +205,7 @@ impl Widget for Oscilloscope {
         }
 
         // Tab row (WAVE | SPEC), clickable.
-        let active = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(203, 166, 247)).add_modifier(Modifier::BOLD);
+        let active = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::primary()).add_modifier(Modifier::BOLD);
         let idle = Style::default().fg(Color::Rgb(108, 112, 134));
         let (ws, is) = (if self.mode == Mode::Wave { active } else { idle }, if self.mode == Mode::Spec { active } else { idle });
         let tab_line = Line::from(vec![

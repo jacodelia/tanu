@@ -6,6 +6,65 @@
 use ratatui::style::{Color, Modifier, Style};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+/// Global primary/accent color for tanu's typography (panel titles, brand).
+/// Packed 0xRRGGBB. Default: Catppuccin mauve. Changed from EDIT → Text Color.
+static PRIMARY: AtomicU32 = AtomicU32::new(0xCBA6F7);
+
+/// Primary color palette offered in the EDIT → Text Color menu (label, hex).
+pub const PRIMARY_PALETTE: &[(&str, &str)] = &[
+    ("Lavender", "#cba6f7"),
+    ("Red", "#f38ba8"),
+    ("Orange", "#fab387"),
+    ("Yellow", "#f9e2af"),
+    ("Green", "#a6e3a1"),
+    ("Teal", "#94e2d5"),
+    ("Blue", "#89b4fa"),
+    ("Magenta", "#f5c2e7"),
+    ("White", "#cdd6f4"),
+];
+
+/// Set the global primary color from a packed 0xRRGGBB value.
+pub fn set_primary(rgb: u32) {
+    PRIMARY.store(rgb & 0xFF_FF_FF, Ordering::Relaxed);
+}
+
+/// Set the primary color from a `#rrggbb` string. Returns false if unparseable.
+pub fn set_primary_hex(hex: &str) -> bool {
+    match parse_color(hex) {
+        Some(Color::Rgb(r, g, b)) => {
+            set_primary((r as u32) << 16 | (g as u32) << 8 | b as u32);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// The current global primary/accent color (titles, brand, focus, selection).
+pub fn primary() -> Color {
+    let v = PRIMARY.load(Ordering::Relaxed);
+    Color::Rgb((v >> 16) as u8, (v >> 8) as u8, v as u8)
+}
+
+/// Primary scaled toward black by `factor` (0..1). Used to derive dimmer
+/// palette tints (borders, dividers) from the chosen primary color.
+fn scaled(factor: f32) -> Color {
+    let v = PRIMARY.load(Ordering::Relaxed);
+    let s = |shift: u32| ((((v >> shift) & 0xFF) as f32) * factor).round() as u8;
+    Color::Rgb(s(16), s(8), s(0))
+}
+
+/// Focused/active border color = the full primary.
+pub fn border_focused() -> Color {
+    primary()
+}
+
+/// Idle panel border / divider color — a dim tint of the primary so the whole
+/// UI (borders, tree, tape deck) shifts hue with the chosen color.
+pub fn border() -> Color {
+    scaled(0.42)
+}
 
 /// A theme defines colors for every semantic UI element.
 #[derive(Debug, Clone, Serialize, Deserialize)]

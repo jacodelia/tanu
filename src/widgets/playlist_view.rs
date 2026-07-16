@@ -165,9 +165,9 @@ impl Widget for PlaylistView {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = if self.focused {
-            Color::Rgb(137, 180, 250)
+            crate::theme::border_focused()
         } else {
-            Color::Rgb(69, 71, 90)
+            crate::theme::border()
         };
 
         let title_text = format!(
@@ -194,7 +194,7 @@ impl Widget for PlaylistView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(137, 180, 250));
+        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
         let track_style = Style::default().fg(Color::Rgb(205, 214, 244));
         let index_style = Style::default().fg(Color::Rgb(108, 112, 134));
 

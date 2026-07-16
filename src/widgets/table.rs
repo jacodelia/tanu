@@ -343,13 +343,13 @@ impl Widget for TableWidget {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = if self.focused {
-            Color::Rgb(137, 180, 250)
+            crate::theme::border_focused()
         } else {
-            Color::Rgb(69, 71, 90)
+            crate::theme::border()
         };
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(137, 180, 250));
-        let visual_style = Style::default().fg(Color::Rgb(205, 214, 244)).bg(Color::Rgb(69, 71, 90));
+        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
+        let visual_style = Style::default().fg(Color::Rgb(205, 214, 244)).bg(crate::theme::border());
         let normal_style = Style::default().fg(Color::Rgb(205, 214, 244));
 
         let title_text = if self.visual_mode {

@@ -95,8 +95,8 @@ impl Widget for AlbumArt {
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(69, 71, 90)))
-            .title(Span::styled(" ♫ Cover ", Style::default().fg(Color::Rgb(203, 166, 247)).add_modifier(Modifier::BOLD)));
+            .border_style(Style::default().fg(crate::theme::border()))
+            .title(Span::styled(" ♫ Cover ", Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)));
         let inner = block.inner(area);
         frame.render_widget(block, area);
         if inner.width == 0 || inner.height == 0 {
@@ -107,13 +107,21 @@ impl Widget for AlbumArt {
     }
 }
 
-/// Extract the first embedded picture from a file's tags and decode it.
+/// Extract the highest-resolution embedded picture and decode it.
+///
+/// Files often embed both a tiny thumbnail and a full cover; the first tag
+/// picture may be the thumbnail. Prefer front-cover pictures, then the one
+/// with the most image data (a good proxy for resolution).
 fn extract_cover(path: &PathBuf) -> Option<image::DynamicImage> {
     use lofty::file::TaggedFileExt;
+    use lofty::picture::PictureType;
     let tagged = lofty::read_from_path(path).ok()?;
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag())?;
-    let pic = tag.pictures().first()?;
-    image::load_from_memory(pic.data()).ok()
+    let best = tag.pictures().iter().max_by_key(|p| {
+        let front_bonus = if p.pic_type() == PictureType::CoverFront { 1usize << 40 } else { 0 };
+        front_bonus + p.data().len()
+    })?;
+    image::load_from_memory(best.data()).ok()
 }
 
 fn track_caption(path: &PathBuf) -> String {

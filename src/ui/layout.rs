@@ -496,12 +496,13 @@ pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
             .constraints([Constraint::Fill(62), Constraint::Fill(38)])
             .split(main_band);
         out.push((Slot::MainLeft, cols[0]));
-        // Right column: album art (fills) · [equalizer] · oscilloscope.
+        // Right column: album art (fills) · [equalizer] · oscilloscope · seek.
         let mut rc: Vec<(Slot, Constraint)> = vec![(Slot::SearchBar, Constraint::Fill(1))];
         if show_eq {
             rc.push((Slot::Eq, Constraint::Length(eq_h)));
         }
         rc.push((Slot::MainRight, Constraint::Length(scope_h)));
+        rc.push((Slot::Seek, Constraint::Length(2)));
         let right = Layout::default()
             .direction(Direction::Vertical)
             .constraints(rc.iter().map(|(_, c)| *c).collect::<Vec<_>>())
@@ -639,8 +640,8 @@ mod tests {
         let mgr = LayoutManager::new();
         let area = Rect { x: 0, y: 0, width: 80, height: 24 };
         let regions = mgr.compute_regions(area);
-        // menu, browser, album art, scope, deck, status, command = 7
-        assert_eq!(regions.len(), 7);
+        // menu, browser, album art, scope, seek, deck, status, command = 8
+        assert_eq!(regions.len(), 8);
     }
 
     #[test]
@@ -656,10 +657,9 @@ mod tests {
     #[test]
     fn test_responsive_drops_slots_on_small_screen() {
         let mgr = LayoutManager::new();
-        // Full screen: all 7 default slots.
-        // Tall: menu, browser, deck, status, command + album art, eq, scope = 8.
+        // Tall: menu, browser, deck, status, command + album art, eq, scope, seek = 9.
         let big = mgr.compute_regions(Rect { x: 0, y: 0, width: 80, height: 40 });
-        assert_eq!(big.len(), 8);
+        assert_eq!(big.len(), 9);
         // Narrow screen (5" style): right column (album art + scope) dropped.
         let small = mgr.compute_regions(Rect { x: 0, y: 0, width: 60, height: 16 });
         let slots: Vec<Slot> = small.iter().map(|(s, _)| *s).collect();

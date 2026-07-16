@@ -173,6 +173,9 @@ where
     fn total_duration(&self) -> Option<std::time::Duration> {
         self.inner.total_duration()
     }
+    fn try_seek(&mut self, pos: std::time::Duration) -> Result<(), rodio::source::SeekError> {
+        self.inner.try_seek(pos)
+    }
 }
 
 #[cfg(test)]

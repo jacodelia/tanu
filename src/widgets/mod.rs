@@ -86,6 +86,7 @@ pub mod queue_view;
 pub mod browser_view;
 pub mod status_bar;
 pub mod progress_bar;
+pub mod seek_bar;
 pub mod popup;
 pub mod context_menu;
 pub mod tabs;

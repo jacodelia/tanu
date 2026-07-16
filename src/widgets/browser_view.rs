@@ -383,9 +383,9 @@ impl Widget for BrowserView {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = if self.focused {
-            Color::Rgb(137, 180, 250)
+            crate::theme::border_focused()
         } else {
-            Color::Rgb(69, 71, 90)
+            crate::theme::border()
         };
         let title = format!(" 🗀 {} ", self.root.to_string_lossy());
         let block = Block::default()
@@ -409,10 +409,10 @@ impl Widget for BrowserView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let marker_style = Style::default().fg(Color::Rgb(137, 180, 250)).add_modifier(Modifier::BOLD);
-        let sel_dir = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(137, 180, 250)).add_modifier(Modifier::BOLD);
+        let marker_style = Style::default().fg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
+        let sel_dir = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
         let sel_file = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(166, 227, 161));
-        let dir_style = Style::default().fg(Color::Rgb(137, 180, 250)).add_modifier(Modifier::BOLD);
+        let dir_style = Style::default().fg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
         let file_style = Style::default().fg(Color::Rgb(205, 214, 244));
 
         let lines: Vec<Line> = self.rows[start..end]

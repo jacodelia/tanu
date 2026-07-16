@@ -136,10 +136,20 @@ impl AudioBackend for RodioBackend {
     }
 
     fn seek(&self, position_secs: f64) {
-        let _ = position_secs;
-        // Rodio Sink doesn't support seeking natively.
-        // Full seek requires re-decoding from the target position
-        // and re-appending. Stubbed for now.
+        let pos = position_secs.max(0.0);
+        let mut inner = self.inner.lock().unwrap();
+        let clamped = if inner.current_duration > 0.0 {
+            pos.min(inner.current_duration)
+        } else {
+            pos
+        };
+        if let Some(ref sink) = inner.sink {
+            // rodio 0.19 Sink::try_seek re-positions the decoder.
+            if sink.try_seek(std::time::Duration::from_secs_f64(clamped)).is_ok() {
+                inner.elapsed_before_pause = clamped;
+                inner.started_at = if inner.paused { None } else { Some(Instant::now()) };
+            }
+        }
     }
 
     fn set_volume(&self, volume: f32) {

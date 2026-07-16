@@ -28,8 +28,6 @@ pub struct ProgressBar {
     id: WidgetId,
     rect: Rect,
     dirty: bool,
-    position_secs: f64,
-    duration_secs: f64,
     is_playing: bool,
     shuffle: bool,
     repeat: RepeatMode,
@@ -48,8 +46,6 @@ impl ProgressBar {
             id: WidgetId::new(),
             rect: Rect::default(),
             dirty: true,
-            position_secs: 0.0,
-            duration_secs: 0.0,
             is_playing: false,
             shuffle: false,
             repeat: RepeatMode::Off,
@@ -58,14 +54,6 @@ impl ProgressBar {
             key_rows: (1, 4),
             vol_region: None,
         }
-    }
-
-    fn format_time(secs: f64) -> String {
-        if secs <= 0.0 || !secs.is_finite() {
-            return "--:--".to_string();
-        }
-        let total = secs as u64;
-        format!("{:02}:{:02}", total / 60, total % 60)
     }
 
     /// (label centered in 3 cells, button, is-active) for each key.
@@ -99,8 +87,6 @@ impl Widget for ProgressBar {
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if let Event::PlayerStateChanged(state) = event {
-            self.position_secs = state.position_secs;
-            self.duration_secs = state.duration_secs;
             self.is_playing = state.is_playing;
             self.shuffle = state.shuffle;
             self.repeat = state.repeat;
@@ -150,7 +136,7 @@ impl Widget for ProgressBar {
         let deck_bg = Color::Rgb(24, 24, 37);
         let panel = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(88, 91, 112)))
+            .border_style(Style::default().fg(crate::theme::border()))
             .title(Span::styled(
                 " ▚ TAPE DECK ▞ ",
                 Style::default().fg(Color::Rgb(249, 226, 175)).add_modifier(Modifier::BOLD),
@@ -195,34 +181,11 @@ impl Widget for ProgressBar {
             }
         }
 
-        // Progress bar on row 3 (numbers + bar).
+        // Volume bar on row 3 (clickable; + / - keys also adjust it).
+        // The playback progress lives in the seek strip under the visualizer.
         self.vol_region = None;
         let bg = Style::default().bg(deck_bg);
         if inner.height >= 4 {
-            let pos = Self::format_time(self.position_secs);
-            let dur = Self::format_time(self.duration_secs);
-            let frac = if self.duration_secs > 0.0 {
-                (self.position_secs / self.duration_secs).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let label_w = 14u16;
-            let bar_w = inner.width.saturating_sub(label_w).max(4) as usize;
-            let filled = (frac * bar_w as f64) as usize;
-            let empty = bar_w.saturating_sub(filled);
-            let fill_color = if self.is_playing { Color::Rgb(166, 227, 161) } else { Color::Rgb(108, 112, 134) };
-            let line = Line::from(vec![
-                Span::styled(format!(" {} ", pos), Style::default().fg(fill_color)),
-                Span::styled("█".repeat(filled), Style::default().fg(fill_color)),
-                Span::styled("░".repeat(empty), Style::default().fg(Color::Rgb(69, 71, 90))),
-                Span::styled(format!(" {} ", dur), Style::default().fg(Color::Rgb(108, 112, 134))),
-            ]);
-            let r = Rect { x: inner.x, y: inner.y + 3, width: inner.width, height: 1 };
-            frame.render_widget(Paragraph::new(line).style(bg), r);
-        }
-
-        // Volume bar on row 4 (clickable; + / - keys also adjust it).
-        if inner.height >= 5 {
             let label = " VOL ";
             let pct = (self.volume * 100.0).round() as u16;
             let suffix = format!(" {:>3}%", pct);
@@ -232,15 +195,15 @@ impl Widget for ProgressBar {
             let filled = (self.volume.clamp(0.0, 1.0) * bar_w as f32) as usize;
             let empty = bar_w as usize - filled;
             let bar_start = inner.x + label.chars().count() as u16 + 1; // after "▐"
-            let row_y = inner.y + 4;
+            let row_y = inner.y + 3;
             // Local coords for hit-testing.
             self.vol_region = Some((row_y - area.y, bar_start - area.x, bar_start + bar_w - area.x));
             let line = Line::from(vec![
                 Span::styled(label, Style::default().fg(Color::Rgb(249, 226, 175))),
-                Span::styled("▐", Style::default().fg(Color::Rgb(69, 71, 90))),
-                Span::styled("▓".repeat(filled), Style::default().fg(Color::Rgb(137, 180, 250))),
-                Span::styled("░".repeat(empty), Style::default().fg(Color::Rgb(69, 71, 90))),
-                Span::styled("▌", Style::default().fg(Color::Rgb(69, 71, 90))),
+                Span::styled("▐", Style::default().fg(crate::theme::border())),
+                Span::styled("▓".repeat(filled), Style::default().fg(crate::theme::border_focused())),
+                Span::styled("░".repeat(empty), Style::default().fg(crate::theme::border())),
+                Span::styled("▌", Style::default().fg(crate::theme::border())),
                 Span::styled(suffix, Style::default().fg(Color::Rgb(186, 194, 222))),
             ]);
             let r = Rect { x: inner.x, y: row_y, width: inner.width, height: 1 };

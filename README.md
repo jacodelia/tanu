@@ -17,13 +17,17 @@ radio-cassette transport deck — keyboard or mouse.
 │ ⤴  ..                               │  ▄▄▄▄▄▄▄▄▄▄▄▄                  │
 │ ▸  Albums                           │  ██ album art ██               │
 │ ▶ ♪ track-01.flac                   ├────────────────────────────────┤
-│   ♪ track-02.flac                   │ ≣ Equalizer · 12  ▄█▆▃▅█▇▂▄▆█▅ │
-│   ...                               ├────────────────────────────────┤
-│                                     │ Oscilloscope ▶  /\  /\  /\     │
+│   ♪ track-02.flac                   │ ≣ EQ · Rock · on    1kHz +3dB  │
+│   ...                               │ ▁▃█▅▂ │▂▄█▅  60Hz▸▸▸ 16k       │
+│                                     ├────────────────────────────────┤
+│                                     │ WAVE  SPEC      /\  /\  /\     │
+│                                     ├────────────────────────────────┤
+│                                     │ ♪ Artist / Title               │
+│                                     │  00:42 ██████░░░░░ 03:15       │
 ├─────────────────────────────────────┴────────────────────────────────┤
 │ ▚ TAPE DECK ▞                                                        │
 │  ╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗╔═══╗                                      │
-│  ║ ◀◀║║ ▶ ║║ ■ ║║ ▶▶║║ ⇄ ║║ ↻ ║   00:42 ██████░░░░░ 03:15            │
+│  ║ ◀◀║║ ▶ ║║ ■ ║║ ▶▶║║ ⇄ ║║ ↻ ║                                     │
 │  ╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝╚═══╝    VOL ▐▓▓▓▓░░░▌  80%                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -36,15 +40,24 @@ radio-cassette transport deck — keyboard or mouse.
   Prev/Next step through it.
 - **Instant playback** — streaming decode via rodio; playback starts in
   microseconds (no full-file decode up front).
-- **Real oscilloscope** — waveform drawn from the samples actually playing.
-- **12-band equalizer** — Goertzel spectrum analyzer with smoothed, color-graded
-  bars, between the cover and the scope.
-- **Album art** — embedded cover rendered as a half-block mosaic, aspect-preserved
-  and Lanczos3-scaled (no image protocol needed; works in any terminal).
+- **Visualizer** — a panel with two views you switch between (WAVE/SPEC tabs or
+  `m`): a real oscilloscope drawn from the samples actually playing, and a
+  16-band Goertzel spectrum analyzer with color-graded bars.
+- **10-band graphic equalizer** — real DSP that modifies the sound (cascaded RBJ
+  peaking biquads, ±12 dB), Winamp-style sliders with presets, between the cover
+  and the scope. Drag a slider or use `←→` / `↑↓`; `p` cycles presets, `e` on/off.
+  A numeric monitor shows the band you're moving (freq + signed dB).
+- **Seek strip** — under the visualizer: the now-playing track name plus a
+  `00:42 ████░░ 03:15` bar. Click or drag it to jump anywhere in the track.
+- **Album art** — the largest embedded cover (front-cover preferred) rendered as
+  a half-block mosaic, aspect-preserved and Lanczos3-scaled (no image protocol
+  needed; works in any terminal).
 - **Radio-cassette transport deck** — prev / play-pause / stop / next /
-  shuffle / repeat, progress bar, and a horizontal volume bar. All clickable.
-- **Menus** — FILE (open / library folder / scan / quit), EDIT (sound source),
-  ABOUT.
+  shuffle / repeat and a horizontal volume bar. All clickable. (Playback
+  progress lives in the seek strip under the visualizer.)
+- **Menus** — FILE (open / library folder / scan / quit), EDIT (sound source,
+  Text Color — a centered modal palette with colored swatches; the pick retints
+  tanu's whole UI: borders, tree, tape deck, titles), ABOUT.
 - **Formats** — MP3, FLAC, OGG, Opus, WAV, M4A (via symphonia).
 - **Responsive** — adapts from a 5" screen upward.
 
@@ -74,6 +87,9 @@ terminal). Follow them with `tail -f ~/.local/share/tanu/tanu.log`.
 | `◀◀` / `▶▶` (or Prev/Next) | Previous / next media file in the folder |
 | `Space` | Play selected (if idle) / pause-resume |
 | `+` / `=` / `-` | Volume up / down |
+| EQ: `←`/`→` band, `↑`/`↓` ±dB | Adjust the focused equalizer band |
+| EQ: `p` / `r` / `e` | Cycle preset / flat / on-off |
+| Visualizer: `m` or `Tab` | Toggle WAVE / SPEC view |
 | `/` | Incremental search (Esc cancels, Enter keeps filter) |
 | `Ctrl+H` | Toggle hidden files |
 | `Home`/`g`, `End`/`G`, `PgUp`/`PgDn` | Jump / page |
@@ -81,8 +97,8 @@ terminal). Follow them with `tail -f ~/.local/share/tanu/tanu.log`.
 | `q`, `Ctrl+C`, `Ctrl+Q` | Quit |
 
 Mouse: click to select, double-click to play/enter, right-click for a context
-menu, scroll to navigate. Click the transport keys, the volume bar, and the
-menu items.
+menu, scroll to navigate. Click the transport keys, the volume bar, the seek
+strip (drag to scrub), and the menu items.
 
 ## Commands (`:`)
 
@@ -113,4 +129,4 @@ See [`docs/roadmap.md`](docs/roadmap.md) for what's done and what's next, and
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) Copyright (c) 2026 Jorge Codelia

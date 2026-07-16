@@ -31,6 +31,8 @@ pub enum Slot {
     CommandBar,
     /// Equalizer / spectrum panel (right column, between art and scope).
     Eq,
+    /// Seek strip (track name + seekable progress) under the visualizer.
+    Seek,
 }
 
 /// The screen divides the terminal into regions and manages widgets.
@@ -204,6 +206,11 @@ impl Screen {
     /// Show a context menu at the given screen position.
     pub fn show_context_menu(&mut self, x: u16, y: u16, items: Vec<MenuItem>) {
         self.context_menu.show(x, y, items);
+    }
+
+    /// Show a centered modal menu (title + items).
+    pub fn show_modal_menu(&mut self, title: &str, items: Vec<MenuItem>) {
+        self.context_menu.show_modal(title, items);
     }
 
     pub fn hide_context_menu(&mut self) {

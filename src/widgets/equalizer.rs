@@ -106,16 +106,22 @@ impl Widget for Equalizer {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let (gains, _preamp, enabled) = self.eq.snapshot();
-        let border_color = if self.focused { Color::Rgb(137, 180, 250) } else { Color::Rgb(69, 71, 90) };
+        let border_color = if self.focused { crate::theme::border_focused() } else { crate::theme::border() };
         let title = format!(
             " ≣ EQ · {} · {}",
             PRESETS[self.preset_idx].0,
             if enabled { "on" } else { "OFF" }
         );
+        // Numeric monitor of the band being moved: freq + signed dB.
+        let f = EQ_FREQS[self.selected];
+        let freq_label = if f >= 1000.0 { format!("{:.0}k", f / 1000.0) } else { format!("{:.0}", f) };
+        let monitor = format!(" {}Hz {:+.0}dB ", freq_label, gains[self.selected]);
+        let mon_color = if gains[self.selected] >= 0.0 { Color::Rgb(166, 227, 161) } else { Color::Rgb(243, 139, 168) };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(title, Style::default().fg(Color::Rgb(203, 166, 247)).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(title, Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
+            .title_top(Line::from(Span::styled(monitor, Style::default().fg(Color::Rgb(30, 30, 46)).bg(mon_color).add_modifier(Modifier::BOLD))).right_aligned())
             .title_bottom(Span::styled(
                 " ←→ band · ↑↓ dB · p preset · r flat · e on/off ",
                 Style::default().fg(Color::Rgb(108, 112, 134)),
@@ -157,14 +163,14 @@ impl Widget for Equalizer {
                 let (ch, mut color) = if col == band_mid && row == kr {
                     ('█', if gains[band] >= 0.0 { Color::Rgb(166, 227, 161) } else { Color::Rgb(243, 139, 168) })
                 } else if row == center {
-                    ('─', Color::Rgb(88, 91, 112))
+                    ('─', crate::theme::border())
                 } else if col == band_mid {
-                    ('│', Color::Rgb(69, 71, 90))
+                    ('│', crate::theme::border())
                 } else {
                     (' ', Color::Rgb(30, 30, 46))
                 };
                 if is_selected && ch != ' ' {
-                    color = if ch == '█' { color } else { Color::Rgb(137, 180, 250) };
+                    color = if ch == '█' { color } else { crate::theme::border_focused() };
                 }
                 let mut st = Style::default().fg(color);
                 if is_selected {
@@ -191,7 +197,7 @@ impl Widget for Equalizer {
             }
             for (col, c) in placed.into_iter().enumerate() {
                 let band = (col * EQ_BANDS) / w;
-                let color = if band == self.selected { Color::Rgb(137, 180, 250) } else { Color::Rgb(108, 112, 134) };
+                let color = if band == self.selected { crate::theme::border_focused() } else { Color::Rgb(108, 112, 134) };
                 spans.push(Span::styled(c.to_string(), Style::default().fg(color)));
             }
             lines.push(Line::from(spans));

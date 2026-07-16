@@ -360,9 +360,9 @@ impl Widget for LibraryView {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let border_color = if self.focused {
-            Color::Rgb(137, 180, 250)
+            crate::theme::border_focused()
         } else {
-            Color::Rgb(69, 71, 90)
+            crate::theme::border()
         };
 
         let title_text = format!(
@@ -388,7 +388,7 @@ impl Widget for LibraryView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(137, 180, 250));
+        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
         let artist_style = Style::default().fg(Color::Rgb(245, 194, 231));
         let album_style = Style::default().fg(Color::Rgb(166, 227, 161));
         let track_style = Style::default().fg(Color::Rgb(205, 214, 244));

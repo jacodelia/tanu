@@ -225,6 +225,9 @@ impl<S: Source<Item = i16>> Source for EqSource<S> {
     fn total_duration(&self) -> Option<std::time::Duration> {
         self.inner.total_duration()
     }
+    fn try_seek(&mut self, pos: std::time::Duration) -> Result<(), rodio::source::SeekError> {
+        self.inner.try_seek(pos)
+    }
 }
 
 /// Winamp-style presets (name, 10 band gains in dB). `preamp` omitted (0 dB).

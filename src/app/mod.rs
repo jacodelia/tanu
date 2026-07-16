@@ -135,6 +135,9 @@ impl App {
         let scope = crate::widgets::oscilloscope::Oscilloscope::new(viz.clone());
         screen.add_widget(Box::new(scope), Slot::MainRight);
 
+        let seek = crate::widgets::seek_bar::SeekBar::new();
+        screen.add_widget(Box::new(seek), Slot::Seek);
+
         let transport = ProgressBar::new();
         screen.add_widget(Box::new(transport), Slot::ProgressBar);
 
@@ -395,6 +398,12 @@ impl App {
         if let Some(w) = self.screen.widget_at_mut(Slot::StatusBar) {
             let any = w.as_mut() as &mut dyn Any;
             if let Some(sb) = any.downcast_mut::<crate::widgets::status_bar::StatusBar>() {
+                sb.set_now_playing(text.clone());
+            }
+        }
+        if let Some(w) = self.screen.widget_at_mut(Slot::Seek) {
+            let any = w.as_mut() as &mut dyn Any;
+            if let Some(sb) = any.downcast_mut::<crate::widgets::seek_bar::SeekBar>() {
                 sb.set_now_playing(text);
             }
         }
@@ -889,6 +898,15 @@ impl App {
             return;
         }
 
+        // Typography color (EDIT → Text Color). Sets the global primary/accent
+        // color used by panel titles and the brand; redraw everything.
+        if let Some(hex) = input.strip_prefix("text_color:") {
+            if crate::theme::set_primary_hex(hex.trim()) {
+                self.screen.mark_dirty();
+            }
+            return;
+        }
+
         // Open a dropdown menu from the menu bar: "menu:<name>:<x>".
         if let Some(rest) = input.strip_prefix("menu:") {
             let mut it = rest.splitn(2, ':');
@@ -903,11 +921,24 @@ impl App {
                 ],
                 "edit" => vec![
                     crate::widgets::context_menu::MenuItem { label: "Sound Source...".into(), command: "set_source".into() },
+                    crate::widgets::context_menu::MenuItem { label: "Text Color...".into(), command: format!("menu:color:{}", x) },
                 ],
+                "color" => crate::theme::PRIMARY_PALETTE
+                    .iter()
+                    .map(|(name, hex)| crate::widgets::context_menu::MenuItem {
+                        label: (*name).to_string(),
+                        command: format!("text_color:{}", hex),
+                    })
+                    .collect(),
                 _ => vec![],
             };
             if !items.is_empty() {
-                self.screen.show_context_menu(x, 1, items);
+                if name == "color" {
+                    // Palette picker is a centered modal with colored swatches.
+                    self.screen.show_modal_menu("Text Color", items);
+                } else {
+                    self.screen.show_context_menu(x, 1, items);
+                }
                 self.screen.mark_dirty();
             }
             return;

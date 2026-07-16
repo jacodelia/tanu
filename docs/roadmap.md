@@ -18,8 +18,11 @@ Punto de partida ya funcionando. Se **reutiliza**, no se tira.
 - [x] Explorador de archivos en árbol (media-only, expand/collapse, teclado+mouse).
 - [x] Reproducción: rodio streaming (arranque ~0.5ms), cola por directorio,
       auto-advance, repeat/shuffle, stop conserva cola.
-- [x] Osciloscopio real (waveform en el playhead) + **ecualizador de 12 bandas**
-      (espectro Goertzel) + album art HD (half-blocks, aspecto preservado, Lanczos3).
+- [x] Visualizador con dos vistas conmutables (tabs `WAVE`/`SPEC`): osciloscopio
+      real en el playhead + analizador de espectro de 16 bandas (Goertzel).
+- [x] **Ecualizador grafico de 10 bandas** que modifica el sonido (biquads RBJ
+      peaking en cascada, ±12 dB, presets estilo Winamp) + album art HD
+      (half-blocks, aspecto preservado, Lanczos3).
 - [x] Transport deck con volumen; menús FILE/EDIT/ABOUT; layout responsivo.
 - [x] SQLite (tracks/albums/artists/FTS5/playlists), escáner lofty incremental.
 - [x] Config TOML, logging a archivo, plugins (scrobbler/discord/lyrics/WASM).

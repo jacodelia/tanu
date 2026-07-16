@@ -30,11 +30,19 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Log to a file, never stdout — the TUI owns the terminal.
+    let log_dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("tanu");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_file = tracing_appender::rolling::never(&log_dir, "tanu.log");
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .with_target(false)
+        .with_ansi(false)
+        .with_writer(log_file)
         .init();
 
     let default_hook = panic::take_hook();

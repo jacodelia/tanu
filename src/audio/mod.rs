@@ -6,3 +6,4 @@
 pub mod backend;
 pub mod decoder;
 pub mod replaygain;
+pub mod viz;

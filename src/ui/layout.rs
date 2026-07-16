@@ -25,7 +25,11 @@ impl SlotSize {
     fn to_constraint(&self) -> Constraint {
         match *self {
             SlotSize::Fixed(n) => Constraint::Length(n),
-            SlotSize::Percentage(p) => Constraint::Percentage((p * 100.0) as u16),
+            // Fill weights split the *remaining* space proportionally, so a
+            // lone main panel fills the screen and two panels share it by
+            // ratio — unlike Percentage, which is a fraction of the whole area
+            // and leaves gaps when a sibling panel is hidden.
+            SlotSize::Percentage(p) => Constraint::Fill(((p * 100.0) as u16).max(1)),
             SlotSize::Min(n) => Constraint::Min(n),
         }
     }
@@ -247,11 +251,36 @@ impl LayoutManager {
         self.drag.is_some()
     }
 
+    /// The slots actually shown for `area`, after responsive adaptation.
+    ///
+    /// On short terminals (e.g. a 5" screen) optional slots are dropped so the
+    /// remaining panels never collapse to zero height: the search bar goes
+    /// first, then the second main panel, then the command bar.
+    fn effective_visible(&self, area: Rect) -> Vec<&SlotConfig> {
+        let def = self.current_def();
+        let short = area.height < 20;
+        let very_short = area.height < 12;
+        def.slots
+            .iter()
+            .filter(|s| s.visible)
+            .filter(|s| match s.slot {
+                Slot::SearchBar => !short,
+                Slot::MainRight => !short,
+                Slot::CommandBar => !very_short,
+                _ => true,
+            })
+            .collect()
+    }
+
     /// Compute the divider regions for the current layout within `area`.
     /// Returns (Slot, Slot, Rect) for each divider line: a 1px strip between two slots.
     pub fn divider_regions(&self, area: Rect) -> Vec<(usize, Rect)> {
+        // The fixed app layout has no draggable dividers.
+        if self.current == "default" {
+            return vec![];
+        }
         let def = self.current_def();
-        let visible: Vec<&SlotConfig> = def.slots.iter().filter(|s| s.visible).collect();
+        let visible = self.effective_visible(area);
         if visible.len() < 2 {
             return vec![];
         }
@@ -313,8 +342,14 @@ impl LayoutManager {
     /// Compute rendering regions for each visible slot within `area`.
     /// Returns a Vec of (Slot, Rect) in display order.
     pub fn compute_regions(&self, area: Rect) -> Vec<(Slot, Rect)> {
+        // The default layout is the app's fixed arrangement: file browser on
+        // the left, oscilloscope top-right, transport deck bottom-right.
+        if self.current == "default" {
+            return app_regions(area);
+        }
+
         let def = self.current_def();
-        let visible: Vec<&SlotConfig> = def.slots.iter().filter(|s| s.visible).collect();
+        let visible = self.effective_visible(area);
         if visible.is_empty() {
             return vec![];
         }
@@ -401,6 +436,77 @@ impl Default for LayoutManager {
     }
 }
 
+/// The fixed application layout (ratune-style vertical stack), responsive to
+/// terminal size:
+///
+/// ```text
+/// ┌ menu bar ─────────────────────────┐
+/// │ file explorer (main, fills)       │
+/// ├───────────────────────────────────┤
+/// │ oscilloscope visualizer strip     │  (dropped on short screens)
+/// ├───────────────────────────────────┤
+/// │ ◀◀ ▶ ■ ▶▶ ⇄ ↻   ▓▓▓░░ transport  │
+/// ├───────────────────────────────────┤
+/// │ status bar                        │
+/// └───────────────────────────────────┘
+/// ```
+pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
+    if area.width == 0 || area.height == 0 {
+        return vec![];
+    }
+
+    let show_command = area.height >= 14;
+    let deck_h = 7u16; // border + 3 key rows + progress + volume
+    let scope_h = 7u16;
+    // Right column (album art + scope) only when there's room.
+    let show_right = area.width >= 70 && area.height >= 16;
+
+    // Outer vertical bands: menu, main, deck, status, [command].
+    let mut vbands: Vec<(Slot, Constraint)> = vec![
+        (Slot::Tabs, Constraint::Length(1)),
+        (Slot::MainLeft, Constraint::Fill(1)), // placeholder for the main band
+        (Slot::ProgressBar, Constraint::Length(deck_h)),
+        (Slot::StatusBar, Constraint::Length(1)),
+    ];
+    if show_command {
+        vbands.push((Slot::CommandBar, Constraint::Length(1)));
+    }
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vbands.iter().map(|(_, c)| *c).collect::<Vec<_>>())
+        .split(area);
+
+    let mut out: Vec<(Slot, Rect)> = Vec::new();
+    let main_band = rows[1];
+    for (i, (slot, _)) in vbands.iter().enumerate() {
+        if *slot == Slot::MainLeft {
+            continue; // filled below
+        }
+        out.push((*slot, rows[i]));
+    }
+
+    if show_right {
+        // Browser left, [album art / oscilloscope] right column.
+        let cols = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Fill(62), Constraint::Fill(38)])
+            .split(main_band);
+        out.push((Slot::MainLeft, cols[0]));
+        let right = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Fill(1), Constraint::Length(scope_h)])
+            .split(cols[1]);
+        out.push((Slot::SearchBar, right[0])); // album art
+        out.push((Slot::MainRight, right[1])); // oscilloscope
+    } else {
+        // Narrow: browser fills the main band; no art/scope.
+        out.push((Slot::MainLeft, main_band));
+    }
+
+    out
+}
+
 /// All built-in layout definitions.
 pub fn all_builtin_layouts() -> Vec<LayoutDef> {
     vec![default_layout(), compact_layout(), wide_layout(), focus_layout()]
@@ -413,8 +519,9 @@ fn default_layout() -> LayoutDef {
         slots: vec![
             SlotConfig { slot: Slot::Tabs, size: SlotSize::Fixed(1), visible: true },
             SlotConfig { slot: Slot::SearchBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(0.5), visible: true },
-            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.5), visible: true },
+            // Single main panel; view tabs swap its content.
+            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(1.0), visible: true },
+            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.0), visible: false },
             SlotConfig { slot: Slot::ProgressBar, size: SlotSize::Fixed(1), visible: true },
             SlotConfig { slot: Slot::StatusBar, size: SlotSize::Fixed(1), visible: true },
             SlotConfig { slot: Slot::CommandBar, size: SlotSize::Fixed(1), visible: true },
@@ -522,7 +629,7 @@ mod tests {
         let mgr = LayoutManager::new();
         let area = Rect { x: 0, y: 0, width: 80, height: 24 };
         let regions = mgr.compute_regions(area);
-        // default has 7 visible slots
+        // menu, browser, album art, scope, deck, status, command = 7
         assert_eq!(regions.len(), 7);
     }
 
@@ -537,13 +644,31 @@ mod tests {
     }
 
     #[test]
-    fn test_drag_state() {
+    fn test_responsive_drops_slots_on_small_screen() {
         let mgr = LayoutManager::new();
+        // Full screen: all 7 default slots.
+        let big = mgr.compute_regions(Rect { x: 0, y: 0, width: 80, height: 40 });
+        assert_eq!(big.len(), 7);
+        // Narrow screen (5" style): right column (album art + scope) dropped.
+        let small = mgr.compute_regions(Rect { x: 0, y: 0, width: 60, height: 16 });
+        let slots: Vec<Slot> = small.iter().map(|(s, _)| *s).collect();
+        assert!(!slots.contains(&Slot::SearchBar));
+        assert!(!slots.contains(&Slot::MainRight));
+        assert!(slots.contains(&Slot::MainLeft));
+        // The single remaining main panel fills the leftover height (no gap).
+        let total: u16 = small.iter().map(|(_, r)| r.height).sum();
+        assert_eq!(total, 16);
+    }
+
+    #[test]
+    fn test_drag_state() {
+        // The default app layout has no draggable dividers; use "wide", which
+        // splits MainLeft/MainRight by percentage.
+        let mut mgr = LayoutManager::new();
+        mgr.switch("wide").unwrap();
         let area = Rect { x: 0, y: 0, width: 80, height: 24 };
-        // divider between Slot::MainLeft and Slot::MainRight (indices 2 and 3)
         let divs = mgr.divider_regions(area);
         assert!(!divs.is_empty());
-        // there should be a divider between percentage-sized slots
         let has_main_divider = divs.iter().any(|(idx, _)| *idx == 2);
         assert!(has_main_divider);
     }

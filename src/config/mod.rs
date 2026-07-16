@@ -241,13 +241,28 @@ impl BindingsConfig {
                 },
                 KeyBinding {
                     key: "space".to_string(),
-                    action: "toggle_play_pause".to_string(),
-                    description: Some("Play / Pause".to_string()),
+                    action: "smart_play_pause".to_string(),
+                    description: Some("Play selected / Pause".to_string()),
                 },
                 KeyBinding {
                     key: "enter".to_string(),
                     action: "select".to_string(),
                     description: Some("Select / Open".to_string()),
+                },
+                KeyBinding {
+                    key: "+".to_string(),
+                    action: "volume_up".to_string(),
+                    description: Some("Volume up".to_string()),
+                },
+                KeyBinding {
+                    key: "=".to_string(),
+                    action: "volume_up".to_string(),
+                    description: Some("Volume up".to_string()),
+                },
+                KeyBinding {
+                    key: "-".to_string(),
+                    action: "volume_down".to_string(),
+                    description: Some("Volume down".to_string()),
                 },
                 KeyBinding {
                     key: "tab".to_string(),

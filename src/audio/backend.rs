@@ -5,14 +5,15 @@
 //! Interior mutability via `parking_lot::Mutex` so the trait's `&self` methods
 //! can mutate state.
 
+use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use rodio::buffer::SamplesBuffer;
-use rodio::{OutputStream, OutputStreamHandle, Sink};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 
-use super::decoder;
+use super::viz::{AudioViz, TappedSource};
 use crate::player::AudioBackend;
 
 /// Inner state behind a Mutex for interior mutability.
@@ -32,14 +33,16 @@ pub struct RodioBackend {
     stream: OutputStream,
     handle: OutputStreamHandle,
     inner: Mutex<RodioInner>,
+    viz: AudioViz,
 }
 
 impl RodioBackend {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(viz: AudioViz) -> anyhow::Result<Self> {
         let (stream, handle) = OutputStream::try_default()?;
         Ok(Self {
             stream,
             handle,
+            viz,
             inner: Mutex::new(RodioInner {
                 sink: None,
                 current_duration: 0.0,
@@ -55,13 +58,20 @@ impl RodioBackend {
 
 impl AudioBackend for RodioBackend {
     fn play(&self, path: &Path) -> anyhow::Result<()> {
-        let decoded = decoder::decode_file(path)?;
+        // Duration from metadata (fast: reads headers, no full decode).
+        let duration = lofty::read_from_path(path)
+            .ok()
+            .map(|f| {
+                use lofty::file::AudioFile;
+                f.properties().duration().as_secs_f64()
+            })
+            .unwrap_or(0.0);
 
-        let source = SamplesBuffer::new(
-            decoded.channels,
-            decoded.sample_rate,
-            decoded.samples,
-        );
+        // Stream lazily through rodio for instant start; tap samples for the scope.
+        let file = File::open(path)?;
+        let decoder = Decoder::new(BufReader::new(file))?;
+        self.viz.on_play();
+        let source = TappedSource::new(decoder, self.viz.clone());
 
         let sink = Sink::try_new(&self.handle)?;
         sink.set_volume(self.inner.lock().unwrap().volume);
@@ -71,7 +81,7 @@ impl AudioBackend for RodioBackend {
 
         // Drop old sink (stops previous playback)
         inner.sink = Some(sink);
-        inner.current_duration = decoded.duration_secs;
+        inner.current_duration = duration;
         inner.playing = true;
         inner.paused = false;
         inner.started_at = Some(Instant::now());
@@ -86,6 +96,7 @@ impl AudioBackend for RodioBackend {
             if inner.playing && !inner.paused {
                 sink.pause();
                 inner.paused = true;
+                self.viz.set_active(false);
 
                 // Record elapsed time
                 if let Some(start) = inner.started_at {
@@ -103,6 +114,7 @@ impl AudioBackend for RodioBackend {
                 sink.play();
                 inner.paused = false;
                 inner.started_at = Some(Instant::now());
+                self.viz.set_active(true);
             }
         }
     }
@@ -115,6 +127,7 @@ impl AudioBackend for RodioBackend {
         inner.started_at = None;
         inner.elapsed_before_pause = 0.0;
         inner.current_duration = 0.0;
+        self.viz.on_stop();
     }
 
     fn seek(&self, position_secs: f64) {

@@ -22,26 +22,14 @@ use crate::widgets::Widget;
 use crate::widgets::browser_view::BrowserView;
 use crate::widgets::command_bar::CommandBar;
 use crate::widgets::library_view::LibraryView;
-use crate::widgets::playlist_view::PlaylistView;
 use crate::widgets::progress_bar::ProgressBar;
-use crate::widgets::queue_view::QueueView;
-use crate::widgets::search_bar::SearchBar;
 use crate::widgets::status_bar::StatusBar;
-use crate::widgets::tabs::Tabs;
 
 use notify::{EventKind, RecursiveMode, Watcher};
 
 pub mod terminal;
 
 use self::terminal::Terminal;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ActiveMainView {
-    Library,
-    Browser,
-    Playlist,
-    Queue,
-}
 
 /// The main application struct. Owns all top-level subsystems and
 /// drives the render loop.
@@ -51,12 +39,17 @@ pub struct App {
     commands: CommandRegistry,
     event_tx: EventSender,
     router: Option<EventRouter>,
+    /// Receives events broadcast by the router (player state, etc.) for the UI.
+    ui_rx: bus::EventReceiver,
     components: Vec<Box<dyn Component>>,
     plugins: PluginManager,
     db: Option<Database>,
     should_quit: bool,
-    active_left: ActiveMainView,
-    active_right: ActiveMainView,
+    mouse: crate::mouse::MouseHandler,
+    viz: crate::audio::viz::AudioViz,
+    /// Latest playback state (from PlayerStateChanged) for smart key handling.
+    playing: bool,
+    volume: f32,
 }
 
 impl App {
@@ -65,8 +58,12 @@ impl App {
         input_handler: InputHandler,
         commands: CommandRegistry,
     ) -> Self {
-        let router = EventRouter::new();
+        let mut router = EventRouter::new();
         let event_tx = router.sender();
+        // Feed router events (e.g. PlayerStateChanged from the player thread)
+        // back into the UI so widgets update.
+        let (ui_tx, ui_rx) = bus::event_channel();
+        router.register_listener(ui_tx);
         let plugins = PluginManager::new(crate::plugins::PluginContext::new(event_tx.clone()));
         Self {
             screen,
@@ -74,12 +71,15 @@ impl App {
             commands,
             event_tx,
             router: Some(router),
+            ui_rx,
             components: Vec::new(),
             plugins,
             db: None,
             should_quit: false,
-            active_left: ActiveMainView::Library,
-            active_right: ActiveMainView::Playlist,
+            mouse: crate::mouse::MouseHandler::new(),
+            viz: crate::audio::viz::AudioViz::new(),
+            playing: false,
+            volume: 0.8,
         }
     }
 
@@ -108,20 +108,26 @@ impl App {
         let theme = ThemeRegistry::new();
         let mut screen = Screen::new(theme);
 
-        let tabs = Tabs::new(vec!["Library", "Browser", "Playlist", "Queue"]);
-        screen.add_widget(Box::new(tabs), Slot::Tabs);
+        let menu_bar = crate::widgets::menu_bar::MenuBar::new();
+        screen.add_widget(Box::new(menu_bar), Slot::Tabs);
 
-        let search_bar = SearchBar::new();
-        screen.add_widget(Box::new(search_bar), Slot::SearchBar);
+        // Album art box (right column, top). Reuses the SearchBar slot.
+        let album_art = crate::widgets::album_art::AlbumArt::new();
+        screen.add_widget(Box::new(album_art), Slot::SearchBar);
 
-        let library_view = LibraryView::new();
-        screen.add_widget(Box::new(library_view), Slot::MainLeft);
+        // Main panel: file browser, rooted at the saved library folder.
+        let browser = BrowserView::new(Self::library_start_dir());
+        let browser_id = browser.id();
+        screen.add_widget(Box::new(browser), Slot::MainLeft);
+        screen.set_focus(Some(browser_id));
 
-        let playlist_view = PlaylistView::new("Playlist");
-        screen.add_widget(Box::new(playlist_view), Slot::MainRight);
+        // Oscilloscope visualizer strip, wired to the shared audio buffer.
+        let viz = crate::audio::viz::AudioViz::new();
+        let scope = crate::widgets::oscilloscope::Oscilloscope::new(viz.clone());
+        screen.add_widget(Box::new(scope), Slot::MainRight);
 
-        let progress = ProgressBar::new();
-        screen.add_widget(Box::new(progress), Slot::ProgressBar);
+        let transport = ProgressBar::new();
+        screen.add_widget(Box::new(transport), Slot::ProgressBar);
 
         let status = StatusBar::new();
         screen.add_widget(Box::new(status), Slot::StatusBar);
@@ -132,7 +138,78 @@ impl App {
         let input_handler = InputHandler::new(BindingsConfig::default_bindings());
         let commands = CommandRegistry::new();
 
-        Self::new(screen, input_handler, commands)
+        let mut app = Self::new(screen, input_handler, commands);
+        app.viz = viz;
+        app
+    }
+
+    /// Path to the persisted config file.
+    fn config_file_path() -> PathBuf {
+        dirs::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("tanu")
+            .join("config.toml")
+    }
+
+    /// Directory the browser starts in: the saved library folder, else audio dir.
+    fn library_start_dir() -> PathBuf {
+        let cfg = crate::config::Config::load_or_default(&Self::config_file_path());
+        cfg.library
+            .music_dirs
+            .into_iter()
+            .find(|p| p.is_dir())
+            .unwrap_or_else(|| dirs::audio_dir().unwrap_or_else(|| PathBuf::from(".")))
+    }
+
+    /// Apply and persist a `:set <key> <value>` change to the config file.
+    fn set_config(&mut self, key: &str, value: &str) -> Result<(), String> {
+        let cfg_path = Self::config_file_path();
+        let mut cfg = crate::config::Config::load_or_default(&cfg_path);
+        match key {
+            "theme" => {
+                self.screen.theme_mut().switch(value).map_err(|e| e.to_string())?;
+                self.screen.mark_dirty();
+                cfg.ui.theme = value.to_string();
+            }
+            "volume" | "vol" => {
+                let v: f32 = value.parse().map_err(|_| "volume must be 0-100".to_string())?;
+                let clamped = (v / 100.0).clamp(0.0, 1.0);
+                let _ = self.event_tx.send(Event::SetVolume(clamped));
+                cfg.audio.default_volume = clamped;
+            }
+            "library" | "library_dir" => {
+                let pb = PathBuf::from(value);
+                if !pb.is_dir() {
+                    return Err(format!("not a directory: {}", value));
+                }
+                self.set_browser_dir(pb.clone());
+                cfg.library.music_dirs = vec![pb];
+            }
+            "max_fps" => {
+                let fps: u32 = value.parse().map_err(|_| "max_fps must be a number".to_string())?;
+                cfg.ui.max_fps = fps.clamp(10, 240);
+            }
+            other => return Err(format!("unknown config key: {}", other)),
+        }
+        if let Some(parent) = cfg_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        cfg.save(&cfg_path).map_err(|e| e.to_string())?;
+        self.screen.show_popup_info("Config", format!("{} = {} (saved)", key, value));
+        Ok(())
+    }
+
+    /// Persist the library start directory to the config file.
+    fn save_library_dir(path: &std::path::Path) {
+        let cfg_path = Self::config_file_path();
+        let mut cfg = crate::config::Config::load_or_default(&cfg_path);
+        cfg.library.music_dirs = vec![path.to_path_buf()];
+        if let Some(parent) = cfg_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Err(e) = cfg.save(&cfg_path) {
+            tracing::warn!(error = %e, "Failed to save library dir");
+        }
     }
 
     /// Spawn the audio player on a dedicated OS thread.
@@ -155,6 +232,16 @@ impl App {
         // Tokio task: receive events and forward as commands
         tokio::spawn(async move {
             while let Some(event) = bridge_rx.recv().await {
+                // Play a specific file: replace the queue with it and play.
+                if let Event::PlayPath(path) = &event {
+                    let p = PathBuf::from(path);
+                    let _ = cmd_tx_clone.send(PlayerCommand::ClearQueue);
+                    let _ = cmd_tx_clone.send(PlayerCommand::Enqueue(p));
+                    if cmd_tx_clone.send(PlayerCommand::Play).is_err() {
+                        break;
+                    }
+                    continue;
+                }
                 let cmd = match event {
                     Event::Play => Some(PlayerCommand::Play),
                     Event::Pause => Some(PlayerCommand::Pause),
@@ -181,8 +268,9 @@ impl App {
         // RodioBackend / OutputStream is not Send, so we construct it inside
         // the thread.
         let paths = paths.clone();
+        let viz = self.viz.clone();
         std::thread::spawn(move || {
-            let backend = match RodioBackend::new() {
+            let backend = match RodioBackend::new(viz) {
                 Ok(b) => Box::new(b),
                 Err(e) => {
                     tracing::error!("Failed to create audio backend: {}", e);
@@ -264,53 +352,38 @@ impl App {
         }
     }
 
-    /// Switch the content of a main panel to the requested view and
-    /// highlight the matching tab. Library/Browser share the left panel;
-    /// Playlist/Queue share the right panel.
-    fn switch_view(&mut self, view: ActiveMainView) {
-        let (slot, tab_idx) = match view {
-            ActiveMainView::Library => (Slot::MainLeft, 0),
-            ActiveMainView::Browser => (Slot::MainLeft, 1),
-            ActiveMainView::Playlist => (Slot::MainRight, 2),
-            ActiveMainView::Queue => (Slot::MainRight, 3),
-        };
-
-        // No-op if the panel already shows this view (avoids losing state).
-        let current = if slot == Slot::MainLeft { self.active_left } else { self.active_right };
-        if current == view {
-            return;
-        }
-
-        let widget: Box<dyn crate::widgets::Widget> = match view {
-            ActiveMainView::Library => Box::new(LibraryView::new()),
-            ActiveMainView::Browser => {
-                let root = dirs::audio_dir().unwrap_or_else(|| PathBuf::from("."));
-                Box::new(BrowserView::new(root))
+    /// Load the given track's embedded cover into the album-art panel.
+    fn update_album_art(&mut self, path: &std::path::Path) {
+        if let Some(w) = self.screen.widget_at_mut(Slot::SearchBar) {
+            let any = w.as_mut() as &mut dyn Any;
+            if let Some(art) = any.downcast_mut::<crate::widgets::album_art::AlbumArt>() {
+                art.set_track(&path.to_path_buf());
             }
-            ActiveMainView::Playlist => Box::new(PlaylistView::new("Playlist")),
-            ActiveMainView::Queue => Box::new(QueueView::new()),
-        };
-        self.screen.replace_widget(widget, slot);
+        }
+    }
 
-        if slot == Slot::MainLeft {
-            self.active_left = view;
+    /// The file currently selected in the explorer, if it is a playable file.
+    fn selected_browser_file(&mut self) -> Option<PathBuf> {
+        let widget = self.screen.widget_at_mut(Slot::MainLeft)?;
+        let any = widget.as_mut() as &mut dyn Any;
+        let browser = any.downcast_mut::<BrowserView>()?;
+        let path = browser.selected_path()?.clone();
+        if path.is_file() {
+            Some(path)
         } else {
-            self.active_right = view;
+            None
         }
+    }
 
-        // LibraryView needs the database wired in to show tracks.
-        if matches!(view, ActiveMainView::Library) {
-            self.refresh_library_table();
-        }
-
-        // Sync the tab bar highlight.
-        if let Some(widget) = self.screen.widget_at_mut(Slot::Tabs) {
+    /// Point the browser at a new directory (library folder change).
+    fn set_browser_dir(&mut self, path: PathBuf) {
+        if let Some(widget) = self.screen.widget_at_mut(Slot::MainLeft) {
             let any = widget.as_mut() as &mut dyn Any;
-            if let Some(tabs) = any.downcast_mut::<Tabs>() {
-                tabs.set_selected(tab_idx);
+            if let Some(browser) = any.downcast_mut::<BrowserView>() {
+                browser.navigate_to(path);
+                self.screen.mark_dirty();
             }
         }
-        self.screen.mark_dirty();
     }
 
     pub fn register_component(&mut self, component: Box<dyn Component>) {
@@ -474,12 +547,33 @@ impl App {
                 self.handle_crossterm_event(crossterm_event);
             }
 
+            // Drain events broadcast by the router. The router echoes back
+            // everything the UI already dispatched, so only act on events that
+            // originate off-thread (player state, library scans).
+            while let Ok(ev) = self.ui_rx.try_recv() {
+                match ev {
+                    Event::PlayerStateChanged(ref state) => {
+                        self.playing = state.is_playing;
+                        self.volume = state.volume;
+                        let _ = self.screen.handle_event(&ev);
+                    }
+                    Event::LibraryScanStarted
+                    | Event::LibraryScanProgress { .. }
+                    | Event::LibraryScanComplete { .. } => {
+                        self.handle_event(&ev);
+                    }
+                    _ => {}
+                }
+            }
+
             if !has_event && !self.screen.needs_render() {
                 // Nothing to do; yield to reduce CPU usage
                 std::thread::sleep(Duration::from_millis(1));
             }
 
             self.handle_event(&Event::Tick);
+            // Let widgets animate (oscilloscope self-throttles to ~25fps).
+            let _ = self.screen.handle_event(&Event::Tick);
             self.plugins.tick_all();
         }
 
@@ -489,8 +583,23 @@ impl App {
     fn handle_crossterm_event(&mut self, event: crossterm::event::Event) {
         match event {
             crossterm::event::Event::Key(key) => {
+                // Ctrl+C / Ctrl+Q always quit, regardless of mode.
+                if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+                    && matches!(key.code, crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('q'))
+                {
+                    self.should_quit = true;
+                    return;
+                }
+
                 let mode = self.input_handler.current_mode();
                 let tanu_key = crate::input::from_crossterm_key(&key, mode);
+
+                // A visible input popup needs raw keys, otherwise Normal-mode
+                // bindings (j/k/g/...) would hijack typed path characters.
+                if self.screen.popup_visible() {
+                    self.dispatch_event(Event::KeyPress(tanu_key));
+                    return;
+                }
 
                 match mode {
                     crate::events::UiMode::Command
@@ -510,8 +619,26 @@ impl App {
                 }
             }
             crossterm::event::Event::Mouse(mouse) => {
-                if let Some(event) = crate::input::from_crossterm_mouse(&mouse) {
-                    self.dispatch_event(event);
+                use crossterm::event::MouseEventKind;
+                let (x, y) = (mouse.column, mouse.row);
+                // Route through MouseHandler so double-click / right-click are
+                // detected (raw crossterm only gives Down/Up/Drag/Scroll).
+                let action = match mouse.kind {
+                    MouseEventKind::Down(btn) => {
+                        Some(self.mouse.on_press(crate::input::convert_mouse_button(btn), x, y))
+                    }
+                    MouseEventKind::Up(btn) => {
+                        Some(self.mouse.on_release(crate::input::convert_mouse_button(btn), x, y))
+                    }
+                    MouseEventKind::Drag(_) => Some(self.mouse.on_move(x, y)),
+                    MouseEventKind::Moved => Some(self.mouse.on_move(x, y)),
+                    MouseEventKind::ScrollUp => Some(self.mouse.on_scroll_up(x, y)),
+                    MouseEventKind::ScrollDown => Some(self.mouse.on_scroll_down(x, y)),
+                    MouseEventKind::ScrollLeft => Some(self.mouse.on_scroll_left(x, y)),
+                    MouseEventKind::ScrollRight => Some(self.mouse.on_scroll_right(x, y)),
+                };
+                if let Some(action) = action {
+                    self.dispatch_event(Event::MouseAction(action));
                 }
             }
             crossterm::event::Event::Resize(cols, rows) => {
@@ -550,6 +677,17 @@ impl App {
             }
             Event::ModeChanged(mode) => {
                 self.input_handler.set_mode(*mode);
+                // Drive the explorer's incremental search from Search mode.
+                if let Some(widget) = self.screen.widget_at_mut(Slot::MainLeft) {
+                    let any = widget.as_mut() as &mut dyn Any;
+                    if let Some(browser) = any.downcast_mut::<BrowserView>() {
+                        match mode {
+                            crate::events::UiMode::Search => browser.start_search(),
+                            _ => browser.end_search(),
+                        }
+                    }
+                }
+                self.screen.mark_dirty();
             }
             Event::LibraryScanComplete { .. } => {
                 self.refresh_library_table();
@@ -620,7 +758,6 @@ impl App {
             let data = &input[5..];
             let display = data.replace(',', "\n");
             tracing::info!(paths = data, "Yanked");
-            println!("{}", display);
             self.screen.show_popup_info("Yanked", format!("Copied:\n{}", display));
             return;
         }
@@ -633,6 +770,100 @@ impl App {
                     tracing::info!(from = from, to = to, "Item moved");
                     let _ = self.event_tx.send(Event::QueueChanged);
                 }
+            }
+            return;
+        }
+
+        // Play a file chosen in the browser or via the Open File dialog.
+        if let Some(path) = input.strip_prefix("play_file:") {
+            let path = path.trim();
+            if path.is_empty() {
+                return;
+            }
+            tracing::info!(path = path, "Play file");
+            let _ = self.event_tx.send(Event::PlayPath(path.to_string()));
+            self.update_album_art(std::path::Path::new(path));
+            let name = std::path::Path::new(path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| path.to_string());
+            self.screen.show_popup_info("Playing", name);
+            return;
+        }
+
+        // Scan a directory into the library (from the Scan Directory dialog).
+        if let Some(path) = input.strip_prefix("scan_path:") {
+            let path = path.trim();
+            if path.is_empty() {
+                return;
+            }
+            let pb = PathBuf::from(path);
+            let db = self.db.clone().or_else(|| {
+                let db_path = dirs::data_dir()
+                    .unwrap_or_else(|| PathBuf::from("."))
+                    .join("tanu")
+                    .join("tanu.db");
+                Database::open(&db_path).ok()
+            });
+            if let Some(db) = db {
+                self.scan_library(db, vec![pb]);
+                self.screen.show_popup_info("Scanning", format!("Indexing {}", path));
+            } else {
+                self.screen.show_popup_error("Scan failed", "No database available");
+            }
+            return;
+        }
+
+        // Library folder: persist the start directory and point the browser at it.
+        if let Some(path) = input.strip_prefix("library_dir:") {
+            let path = path.trim();
+            if path.is_empty() {
+                return;
+            }
+            let pb = PathBuf::from(path);
+            if pb.is_dir() {
+                Self::save_library_dir(&pb);
+                self.set_browser_dir(pb);
+                self.screen.show_popup_info("Library Folder", format!("Start directory set to\n{}", path));
+            } else {
+                self.screen.show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
+            }
+            return;
+        }
+
+        // Sound source / output device (EDIT menu). rodio picks the default
+        // output; switching devices at runtime is not wired to the backend yet.
+        // ponytail: records the choice + acks; wire to backend device selection when needed.
+        if let Some(val) = input.strip_prefix("sound_source:") {
+            let val = val.trim();
+            tracing::info!(source = val, "Sound source requested");
+            self.screen.show_popup_info(
+                "Sound Source",
+                format!("Selected: {}\n(applies to the default output)", val),
+            );
+            return;
+        }
+
+        // Open a dropdown menu from the menu bar: "menu:<name>:<x>".
+        if let Some(rest) = input.strip_prefix("menu:") {
+            let mut it = rest.splitn(2, ':');
+            let name = it.next().unwrap_or("");
+            let x: u16 = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+            let items = match name {
+                "file" => vec![
+                    crate::widgets::context_menu::MenuItem { label: "Open File...".into(), command: "open_file".into() },
+                    crate::widgets::context_menu::MenuItem { label: "Library Folder...".into(), command: "library_folder".into() },
+                    crate::widgets::context_menu::MenuItem { label: "Scan Directory...".into(), command: "scan_dir".into() },
+                    crate::widgets::context_menu::MenuItem { label: "Quit".into(), command: "quit".into() },
+                ],
+                "edit" => vec![
+                    crate::widgets::context_menu::MenuItem { label: "Sound Source...".into(), command: "set_source".into() },
+                ],
+                _ => vec![],
+            };
+            if !items.is_empty() {
+                self.screen.show_context_menu(x, 1, items);
+                self.screen.mark_dirty();
             }
             return;
         }
@@ -815,11 +1046,9 @@ impl App {
                 if args.len() >= 2 {
                     let key = args[0];
                     let value = args[1..].join(" ");
-                    tracing::info!(key = key, value = %value, "Setting config");
-                    // TODO: persist to config
-                    Ok(())
+                    self.set_config(key, &value)
                 } else {
-                    Err("Usage: set <key> <value>".to_string())
+                    Err("Usage: set <key> <value>  (keys: theme, volume, library, max_fps)".to_string())
                 }
             }
             "add" => {
@@ -834,14 +1063,63 @@ impl App {
                     Err("Usage: add <path>".to_string())
                 }
             }
-            "library" | "browser" | "playlist" | "queue" => {
-                let view = match cmd {
-                    "library" => ActiveMainView::Library,
-                    "browser" => ActiveMainView::Browser,
-                    "playlist" => ActiveMainView::Playlist,
-                    _ => ActiveMainView::Queue,
-                };
-                self.switch_view(view);
+            "smart_play_pause" => {
+                if self.playing {
+                    let _ = self.event_tx.send(Event::TogglePlayPause);
+                } else if let Some(path) = self.selected_browser_file() {
+                    let _ = self.event_tx.send(Event::PlayPath(path.to_string_lossy().to_string()));
+                    self.update_album_art(&path);
+                } else {
+                    let _ = self.event_tx.send(Event::TogglePlayPause);
+                }
+                Ok(())
+            }
+            "volume_up" => {
+                self.volume = (self.volume + 0.05).clamp(0.0, 1.0);
+                let _ = self.event_tx.send(Event::SetVolume(self.volume));
+                Ok(())
+            }
+            "volume_down" => {
+                self.volume = (self.volume - 0.05).clamp(0.0, 1.0);
+                let _ = self.event_tx.send(Event::SetVolume(self.volume));
+                Ok(())
+            }
+            "set_volume" => {
+                if let Some(v) = args.first().and_then(|s| s.parse::<f32>().ok()) {
+                    self.volume = (v / 100.0).clamp(0.0, 1.0);
+                    let _ = self.event_tx.send(Event::SetVolume(self.volume));
+                }
+                Ok(())
+            }
+            "library_folder" => {
+                self.screen.show_popup_input("Library Folder — start directory", "library_dir".into());
+                self.screen.mark_dirty();
+                Ok(())
+            }
+            "open_file" => {
+                self.screen.show_popup_input("Open File — enter path", "play_file".into());
+                self.screen.mark_dirty();
+                Ok(())
+            }
+            "scan_dir" => {
+                self.screen.show_popup_input("Scan Directory — enter path", "scan_path".into());
+                self.screen.mark_dirty();
+                Ok(())
+            }
+            "set_source" => {
+                self.screen.show_popup_input("Sound Source — enter output device", "sound_source".into());
+                self.screen.mark_dirty();
+                Ok(())
+            }
+            "about" => {
+                self.screen.show_popup_info(
+                    "About Tanu",
+                    format!(
+                        "Tanu {}\nA terminal music player in Rust (cmus-inspired).\n\nFILE: open/scan  EDIT: sound source  ABOUT: this box",
+                        env!("CARGO_PKG_VERSION")
+                    ),
+                );
+                self.screen.mark_dirty();
                 Ok(())
             }
             "next_view" => {
@@ -920,23 +1198,11 @@ mod tests {
     }
 
     #[test]
-    fn test_switch_view_updates_active_panels() {
-        let mut app = App::default_app();
-        assert_eq!(app.active_left, ActiveMainView::Library);
-        assert_eq!(app.active_right, ActiveMainView::Playlist);
-
-        app.switch_view(ActiveMainView::Browser);
-        assert_eq!(app.active_left, ActiveMainView::Browser);
-        // right panel untouched
-        assert_eq!(app.active_right, ActiveMainView::Playlist);
-
-        app.switch_view(ActiveMainView::Queue);
-        assert_eq!(app.active_right, ActiveMainView::Queue);
-        assert_eq!(app.active_left, ActiveMainView::Browser);
-
-        // no-op when already active
-        app.switch_view(ActiveMainView::Queue);
-        assert_eq!(app.active_right, ActiveMainView::Queue);
+    fn test_default_app_builds() {
+        let app = App::default_app();
+        // Browser occupies the main panel.
+        assert!(app.screen.widget_at(Slot::MainLeft).is_some());
+        assert!(app.screen.widget_at(Slot::MainRight).is_some());
     }
 
     #[test]

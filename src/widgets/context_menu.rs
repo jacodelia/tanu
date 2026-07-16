@@ -128,10 +128,19 @@ impl Widget for ContextMenu {
                 }
                 if action.is_click() {
                     let (mx, my) = action.coords();
-                    if mx < self.screen_x || mx >= self.screen_x + self.menu_width()
-                        || my < self.screen_y || my >= self.screen_y + self.menu_height()
-                    {
+                    let inside = mx >= self.screen_x && mx < self.screen_x + self.menu_width()
+                        && my >= self.screen_y && my < self.screen_y + self.menu_height();
+                    if !inside {
                         self.hide();
+                        return EventResult::NotConsumed;
+                    }
+                    // Click on an item row (row 0 is the top border): activate it.
+                    let row = my.saturating_sub(self.screen_y + 1) as usize;
+                    if row < self.items.len() {
+                        self.selected_index = row;
+                        let cmd = self.items[row].command.clone();
+                        self.hide();
+                        return EventResult::Event(Event::Command(cmd));
                     }
                 }
                 EventResult::NotConsumed

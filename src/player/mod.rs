@@ -159,6 +159,40 @@ impl Player {
         self.state.track_id = None;
     }
 
+    /// Detect a finished track (sink drained near the end) and advance
+    /// according to the repeat mode: replay, next, wrap, or stop.
+    fn check_track_end(&mut self) {
+        if !self.state.is_playing {
+            return;
+        }
+        let dur = self.backend.duration();
+        let pos = self.backend.position();
+        if dur <= 1.0 || pos < dur - 0.4 || self.backend.is_playing() {
+            return;
+        }
+        match self.state.repeat {
+            RepeatMode::Track => {
+                let _ = self.play_current();
+            }
+            RepeatMode::Playlist => {
+                self.queue_position = if self.queue_position + 1 < self.queue.len() {
+                    self.queue_position + 1
+                } else {
+                    0
+                };
+                let _ = self.play_current();
+            }
+            RepeatMode::Off => {
+                if self.queue_position + 1 < self.queue.len() {
+                    self.queue_position += 1;
+                    let _ = self.play_current();
+                } else {
+                    self.stop();
+                }
+            }
+        }
+    }
+
     fn next(&mut self) -> anyhow::Result<()> {
         if self.queue_position + 1 < self.queue.len() {
             self.queue_position += 1;
@@ -265,6 +299,8 @@ impl Player {
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
+
+            self.check_track_end();
 
             let state = self.current_state();
             let _ = event_tx.send(Event::PlayerStateChanged(state));

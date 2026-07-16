@@ -22,6 +22,8 @@ pub enum Event {
         message: Option<String>,
     },
     Play,
+    /// Play a specific file path immediately (clears queue, enqueues, plays).
+    PlayPath(String),
     Pause,
     TogglePlayPause,
     Stop,
@@ -198,6 +200,7 @@ impl Event {
             Event::Command(_) => "Command",
             Event::CommandResult { .. } => "CommandResult",
             Event::Play => "Play",
+            Event::PlayPath(_) => "PlayPath",
             Event::Pause => "Pause",
             Event::TogglePlayPause => "TogglePlayPause",
             Event::Stop => "Stop",

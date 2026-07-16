@@ -9,6 +9,7 @@ use crate::events::{Event, KeyCode, KeyEvent, KeyModifiers, MouseAction, MouseBu
 /// Converts a crossterm `KeyEvent` into Tanu's `KeyEvent`.
 pub fn from_crossterm_key(key: &crossterm::event::KeyEvent, mode: UiMode) -> KeyEvent {
     let code = match key.code {
+        crossterm::event::KeyCode::Char(' ') => KeyCode::Space,
         crossterm::event::KeyCode::Char(c) => KeyCode::Char(c),
         crossterm::event::KeyCode::Enter => KeyCode::Enter,
         crossterm::event::KeyCode::Esc => KeyCode::Escape,
@@ -69,7 +70,7 @@ pub fn from_crossterm_mouse(mouse: &crossterm::event::MouseEvent) -> Option<Even
     Some(Event::MouseAction(action))
 }
 
-fn convert_mouse_button(button: crossterm::event::MouseButton) -> MouseButton {
+pub fn convert_mouse_button(button: crossterm::event::MouseButton) -> MouseButton {
     match button {
         crossterm::event::MouseButton::Left => MouseButton::Left,
         crossterm::event::MouseButton::Right => MouseButton::Right,
@@ -197,7 +198,15 @@ fn action_to_event(action: &str) -> Option<Event> {
         "search" => Some(Event::ModeChanged(UiMode::Search)),
         "command_mode" => Some(Event::ModeChanged(UiMode::Command)),
         "toggle_play_pause" => Some(Event::TogglePlayPause),
-        "select" => Some(Event::Command("select".to_string())),
+        "smart_play_pause" => Some(Event::Command("smart_play_pause".to_string())),
+        "volume_up" => Some(Event::Command("volume_up".to_string())),
+        "volume_down" => Some(Event::Command("volume_down".to_string())),
+        // Forward Enter to the focused widget (browser plays the file, etc.).
+        "select" => Some(Event::KeyPress(KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            mode: UiMode::Normal,
+        })),
         "next_view" => Some(Event::Command("next_view".to_string())),
         "previous_view" => Some(Event::Command("previous_view".to_string())),
         "quit" => Some(Event::Quit),

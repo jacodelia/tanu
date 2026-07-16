@@ -416,14 +416,15 @@ impl Screen {
 
         let regions = self.layout.compute_regions(area);
 
+        // Ratatui hands us a blank buffer each draw, so every widget must
+        // render every frame — drawing only the dirty ones blanks the rest.
+        // Dirty tracking still gates *whether* we draw at all (see needs_render).
         for (slot, rect) in &regions {
             if let Some(id) = self.slot_map.get(slot) {
                 if let Some(widget) = self.widgets.get_mut(id) {
                     widget.set_rect(*rect);
-                    if widget.is_dirty() {
-                        widget.render(frame, *rect);
-                        widget.mark_clean();
-                    }
+                    widget.render(frame, *rect);
+                    widget.mark_clean();
                 }
             }
         }

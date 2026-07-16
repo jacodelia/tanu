@@ -89,6 +89,7 @@ pub mod progress_bar;
 pub mod seek_bar;
 pub mod popup;
 pub mod context_menu;
+pub mod dir_picker;
 pub mod tabs;
 pub mod menu_bar;
 pub mod oscilloscope;

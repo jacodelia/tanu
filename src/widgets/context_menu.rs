@@ -27,6 +27,8 @@ pub struct ContextMenu {
     screen_y: u16,
     /// When set, the menu is centered on screen and shows this title.
     modal_title: Option<String>,
+    /// Screen coords of the modal `[x]` close button: (row, x_start, x_end).
+    close_region: Option<(u16, u16, u16)>,
 }
 
 impl ContextMenu {
@@ -42,6 +44,7 @@ impl ContextMenu {
             screen_x: 0,
             screen_y: 0,
             modal_title: None,
+            close_region: None,
         }
     }
 
@@ -154,6 +157,13 @@ impl Widget for ContextMenu {
                 }
                 if action.is_click() {
                     let (mx, my) = action.coords();
+                    // Modal [x] close button.
+                    if let Some((ry, x0, x1)) = self.close_region {
+                        if my == ry && mx >= x0 && mx < x1 {
+                            self.hide();
+                            return EventResult::Consumed;
+                        }
+                    }
                     let inside = mx >= self.screen_x && mx < self.screen_x + self.menu_width()
                         && my >= self.screen_y && my < self.screen_y + self.menu_height();
                     if !inside {
@@ -221,11 +231,18 @@ impl Widget for ContextMenu {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
             .style(Style::default().bg(Color::Rgb(30, 30, 46)));
+        self.close_region = None;
         if let Some(ref title) = self.modal_title {
             block = block.title(Span::styled(
                 format!(" {} ", title),
                 Style::default().fg(crate::theme::primary()).add_modifier(ratatui::style::Modifier::BOLD),
             ));
+            block = block.title_top(Line::from(Span::styled(
+                "[x]",
+                Style::default().fg(Color::Rgb(243, 139, 168)).add_modifier(ratatui::style::Modifier::BOLD),
+            )).right_aligned());
+            let x_end = menu_rect.x + menu_rect.width.saturating_sub(1);
+            self.close_region = Some((menu_rect.y, x_end.saturating_sub(3), x_end));
         }
 
         let highlight_bg = crate::theme::border_focused();

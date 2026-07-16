@@ -845,6 +845,31 @@ impl App {
             return;
         }
 
+        // Folder chosen in the tree picker: point the browser at it AND scan it
+        // (library folder + scan are the same action now).
+        if let Some(path) = input.strip_prefix("pick_dir:") {
+            let path = path.trim();
+            let pb = PathBuf::from(path);
+            if !pb.is_dir() {
+                self.screen.show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
+                return;
+            }
+            Self::save_library_dir(&pb);
+            self.set_browser_dir(pb.clone());
+            let db = self.db.clone().or_else(|| {
+                let db_path = dirs::data_dir()
+                    .unwrap_or_else(|| PathBuf::from("."))
+                    .join("tanu")
+                    .join("tanu.db");
+                Database::open(&db_path).ok()
+            });
+            if let Some(db) = db {
+                self.scan_library(db, vec![pb]);
+            }
+            self.screen.show_popup_info("Scan Folder", format!("Browsing & indexing\n{}", path));
+            return;
+        }
+
         // Scan a directory into the library (from the Scan Directory dialog).
         if let Some(path) = input.strip_prefix("scan_path:") {
             let path = path.trim();
@@ -915,8 +940,7 @@ impl App {
             let items = match name {
                 "file" => vec![
                     crate::widgets::context_menu::MenuItem { label: "Open File...".into(), command: "open_file".into() },
-                    crate::widgets::context_menu::MenuItem { label: "Library Folder...".into(), command: "library_folder".into() },
-                    crate::widgets::context_menu::MenuItem { label: "Scan Directory...".into(), command: "scan_dir".into() },
+                    crate::widgets::context_menu::MenuItem { label: "Scan Folder...".into(), command: "scan_dir".into() },
                     crate::widgets::context_menu::MenuItem { label: "Quit".into(), command: "quit".into() },
                 ],
                 "edit" => vec![
@@ -1178,7 +1202,15 @@ impl App {
                 Ok(())
             }
             "scan_dir" => {
-                self.screen.show_popup_input("Scan Directory — enter path", "scan_path".into());
+                // Start the folder tree at the current browser root (else home / root).
+                let start = self
+                    .screen
+                    .widget_at_mut(Slot::MainLeft)
+                    .and_then(|w| (w.as_mut() as &mut dyn Any).downcast_mut::<crate::widgets::browser_view::BrowserView>())
+                    .map(|b| b.current_dir().clone())
+                    .or_else(dirs::home_dir)
+                    .unwrap_or_else(|| PathBuf::from("/"));
+                self.screen.show_dir_picker(start);
                 self.screen.mark_dirty();
                 Ok(())
             }
@@ -1188,12 +1220,11 @@ impl App {
                 Ok(())
             }
             "about" => {
-                self.screen.show_popup_info(
+                const TANU_ART: &str = include_str!("../widgets/tanu_art.txt");
+                self.screen.show_popup_about(
                     "About Tanu",
-                    format!(
-                        "Tanu {}\nA terminal music player in Rust (cmus-inspired).\n\nFILE: open/scan  EDIT: sound source  ABOUT: this box",
-                        env!("CARGO_PKG_VERSION")
-                    ),
+                    format!("Tanu {} — a terminal music player in Rust (cmus-inspired)", env!("CARGO_PKG_VERSION")),
+                    TANU_ART,
                 );
                 self.screen.mark_dirty();
                 Ok(())

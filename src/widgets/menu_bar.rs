@@ -72,14 +72,17 @@ impl MenuBar {
             x += 1;
         }
 
-        // Right-aligned brand: pad the gap, then "| ♪ Tanu |".
+        // Right-aligned brand: pad the gap, then "| ♪ Tanu |". Clickable → About.
         let brand = "| ♪ Tanu |";
         let brand_w = brand.chars().count() as u16;
         if width > x + brand_w {
             let pad = width - x - brand_w;
             spans.push(Span::styled(" ".repeat(pad as usize), sep_style));
+            x += pad;
         }
+        let brand_start = x;
         spans.push(Span::styled(brand.to_string(), brand_style));
+        self.segments.push(Segment { start: brand_start, end: brand_start + brand_w, command: "about".to_string() });
 
         Line::from(spans)
     }

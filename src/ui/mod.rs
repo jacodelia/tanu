@@ -15,6 +15,7 @@ use crate::events::{Event, MouseAction};
 use crate::theme::ThemeRegistry;
 use crate::widgets::Widget;
 use crate::widgets::context_menu::{ContextMenu, MenuItem};
+use crate::widgets::dir_picker::DirPicker;
 use crate::widgets::popup::Popup;
 
 use self::layout::LayoutManager;
@@ -45,6 +46,7 @@ pub struct Screen {
     layout: LayoutManager,
     context_menu: ContextMenu,
     popup: Popup,
+    dir_picker: DirPicker,
 }
 
 impl Screen {
@@ -58,6 +60,7 @@ impl Screen {
             layout: LayoutManager::new(),
             context_menu: ContextMenu::new(),
             popup: Popup::new(),
+            dir_picker: DirPicker::new(),
         }
     }
 
@@ -213,6 +216,11 @@ impl Screen {
         self.context_menu.show_modal(title, items);
     }
 
+    /// Open the directory picker rooted at `start`.
+    pub fn show_dir_picker(&mut self, start: std::path::PathBuf) {
+        self.dir_picker.show(start);
+    }
+
     pub fn hide_context_menu(&mut self) {
         self.context_menu.hide();
     }
@@ -223,6 +231,11 @@ impl Screen {
 
     pub fn show_popup_info(&mut self, title: impl Into<String>, message: impl Into<String>) {
         self.popup.show_info(title, message);
+    }
+
+    /// Show the large About popup with scaled ASCII art.
+    pub fn show_popup_about(&mut self, title: impl Into<String>, message: impl Into<String>, art: &'static str) {
+        self.popup.show_about(title, message, art);
     }
 
     /// Show an info popup with Enter/Esc actions (returns commands via Event).
@@ -281,6 +294,13 @@ impl Screen {
     /// Returns any events produced by widgets.
     pub fn handle_event(&mut self, event: &Event) -> Vec<Event> {
         let mut produced = Vec::new();
+
+        if self.dir_picker.is_visible() {
+            let result = self.dir_picker.handle_event(event);
+            apply_event_result(result, &mut produced);
+            // Modal: capture all input while open.
+            return produced;
+        }
 
         if self.context_menu.is_visible() {
             let result = self.context_menu.handle_event(event);
@@ -465,6 +485,10 @@ impl Screen {
             self.popup.render(frame, area);
             self.popup.mark_clean();
         }
+        if self.dir_picker.is_visible() || self.dir_picker.is_dirty() {
+            self.dir_picker.render(frame, area);
+            self.dir_picker.mark_clean();
+        }
     }
 
     /// Mark all widgets as dirty. Call after layout switch, theme change, resize.
@@ -480,6 +504,9 @@ impl Screen {
             return true;
         }
         if self.popup.is_visible() && self.popup.is_dirty() {
+            return true;
+        }
+        if self.dir_picker.is_visible() && self.dir_picker.is_dirty() {
             return true;
         }
         for widget in self.widgets.values() {

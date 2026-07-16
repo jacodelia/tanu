@@ -55,7 +55,8 @@ radio-cassette transport deck — keyboard or mouse.
 - **Radio-cassette transport deck** — prev / play-pause / stop / next /
   shuffle / repeat and a horizontal volume bar. All clickable. (Playback
   progress lives in the seek strip under the visualizer.)
-- **Menus** — FILE (open / library folder / scan / quit), EDIT (sound source,
+- **Menus** — FILE (open file / scan folder via a tree picker with OK-Cancel /
+  quit), EDIT (sound source,
   Text Color — a centered modal palette with colored swatches; the pick retints
   tanu's whole UI: borders, tree, tape deck, titles), ABOUT.
 - **Formats** — MP3, FLAC, OGG, Opus, WAV, M4A (via symphonia).
@@ -98,7 +99,7 @@ terminal). Follow them with `tail -f ~/.local/share/tanu/tanu.log`.
 
 Mouse: click to select, double-click to play/enter, right-click for a context
 menu, scroll to navigate. Click the transport keys, the volume bar, the seek
-strip (drag to scrub), and the menu items.
+strip (drag to scrub), the menu items, and the `| ♪ Tanu |` brand (opens About).
 
 ## Commands (`:`)
 

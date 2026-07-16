@@ -21,6 +21,7 @@ struct Row {
     name: String,
     depth: usize,
     expanded: bool,
+    is_dir: bool,
     /// The synthetic ". (use this folder)" entry for the current root.
     is_root_marker: bool,
 }
@@ -32,6 +33,12 @@ pub struct DirPicker {
     visible: bool,
     root: PathBuf,
     rows: Vec<Row>,
+    /// File extensions to also list (lowercase, no dot). Empty = folders only.
+    exts: Vec<String>,
+    /// Command prefix emitted on confirm (e.g. "pick_dir", "set_soundfont").
+    prefix: String,
+    /// Modal title.
+    title: String,
     selected_index: usize,
     scroll_offset: usize,
     /// Screen-space hit regions, rebuilt each render.
@@ -52,6 +59,9 @@ impl DirPicker {
             visible: false,
             root: PathBuf::from("/"),
             rows: Vec::new(),
+            exts: Vec::new(),
+            prefix: "pick_dir".into(),
+            title: "Scan Folder".into(),
             selected_index: 0,
             scroll_offset: 0,
             modal_rect: Rect::default(),
@@ -67,9 +77,24 @@ impl DirPicker {
         self.visible
     }
 
-    /// Open the picker rooted at `start` (falls back to `/`).
+    /// Open the folder picker rooted at `start` (falls back to `/`).
     pub fn show(&mut self, start: PathBuf) {
-        self.root = if start.is_dir() { start } else { PathBuf::from("/") };
+        self.exts = Vec::new();
+        self.prefix = "pick_dir".into();
+        self.title = "Scan Folder".into();
+        self.open(start);
+    }
+
+    /// Open a file picker for the given extensions, emitting `<prefix>:<file>`.
+    pub fn show_files(&mut self, start: PathBuf, exts: Vec<String>, prefix: &str, title: &str) {
+        self.exts = exts.into_iter().map(|e| e.to_lowercase()).collect();
+        self.prefix = prefix.into();
+        self.title = title.into();
+        self.open(start);
+    }
+
+    fn open(&mut self, start: PathBuf) {
+        self.root = if start.is_dir() { start } else { dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")) };
         self.selected_index = 0;
         self.scroll_offset = 0;
         self.rebuild();
@@ -77,53 +102,69 @@ impl DirPicker {
         self.dirty = true;
     }
 
+    /// Whether a file is allowed: only in file mode and matching an extension.
+    fn ext_ok(&self, path: &Path) -> bool {
+        !self.exts.is_empty()
+            && path.extension()
+                .and_then(|e| e.to_str())
+                .map(|e| self.exts.contains(&e.to_lowercase()))
+                .unwrap_or(false)
+    }
+
     pub fn hide(&mut self) {
         self.visible = false;
         self.dirty = true;
     }
 
-    fn read_dirs(dir: &Path, depth: usize) -> Vec<Row> {
+    /// Directories always; files only in file mode (matching `exts`).
+    fn read_entries(&self, dir: &Path, depth: usize) -> Vec<Row> {
         let mut items: Vec<Row> = match std::fs::read_dir(dir) {
             Ok(iter) => iter
                 .filter_map(|e| e.ok())
                 .filter_map(|e| {
                     let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
-                    if !is_dir {
+                    let path = e.path();
+                    if !is_dir && !self.ext_ok(&path) {
                         return None;
                     }
                     let name = e.file_name().to_string_lossy().to_string();
                     if name.starts_with('.') {
                         return None;
                     }
-                    Some(Row { path: e.path(), name, depth, expanded: false, is_root_marker: false })
+                    Some(Row { path, name, depth, expanded: false, is_dir, is_root_marker: false })
                 })
                 .collect(),
             Err(_) => Vec::new(),
         };
-        items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        // Dirs first, then files, each alphabetical.
+        items.sort_by(|a, b| a.is_dir.cmp(&b.is_dir).reverse().then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
         items
     }
 
-    /// Rebuild: a "use this folder" marker for the root, then its subdirs.
+    /// Rebuild: (folder mode) a "use this folder" marker, then entries.
     fn rebuild(&mut self) {
-        let mut rows = vec![Row {
-            path: self.root.clone(),
-            name: ". (use this folder)".into(),
-            depth: 0,
-            expanded: false,
-            is_root_marker: true,
-        }];
-        rows.extend(Self::read_dirs(&self.root.clone(), 0));
+        let mut rows = Vec::new();
+        if self.exts.is_empty() {
+            rows.push(Row {
+                path: self.root.clone(),
+                name: ". (use this folder)".into(),
+                depth: 0,
+                expanded: false,
+                is_dir: true,
+                is_root_marker: true,
+            });
+        }
+        rows.extend(self.read_entries(&self.root.clone(), 0));
         self.rows = rows;
         self.selected_index = self.selected_index.min(self.rows.len().saturating_sub(1));
     }
 
     fn expand(&mut self, idx: usize) {
         if let Some(row) = self.rows.get(idx) {
-            if row.is_root_marker || row.expanded {
+            if row.is_root_marker || row.expanded || !row.is_dir {
                 return;
             }
-            let children = Self::read_dirs(&row.path.clone(), row.depth + 1);
+            let children = self.read_entries(&row.path.clone(), row.depth + 1);
             self.rows[idx].expanded = true;
             for (i, child) in children.into_iter().enumerate() {
                 self.rows.insert(idx + 1 + i, child);
@@ -179,9 +220,19 @@ impl DirPicker {
     }
 
     fn confirm(&mut self) -> EventResult {
+        // File mode: activating a folder expands it; only files/marker confirm.
+        if !self.exts.is_empty() {
+            if let Some(r) = self.rows.get(self.selected_index) {
+                if r.is_dir && !r.is_root_marker {
+                    let expanded = r.expanded;
+                    if expanded { self.collapse(self.selected_index); } else { self.expand(self.selected_index); }
+                    return EventResult::Consumed;
+                }
+            }
+        }
         let path = self.rows.get(self.selected_index).map(|r| r.path.clone()).unwrap_or_else(|| self.root.clone());
         self.hide();
-        EventResult::Event(Event::Command(format!("pick_dir:{}", path.to_string_lossy())))
+        EventResult::Event(Event::Command(format!("{}:{}", self.prefix, path.to_string_lossy())))
     }
 }
 
@@ -243,12 +294,8 @@ impl Widget for DirPicker {
                         self.selected_index = idx;
                         self.dirty = true;
                         if double {
-                            // Double-click a real folder toggles expand.
-                            if let Some(r) = self.rows.get(idx) {
-                                if !r.is_root_marker {
-                                    if r.expanded { self.collapse(idx); } else { self.expand(idx); }
-                                }
-                            }
+                            // Double-click: confirm (folders expand in file mode).
+                            return self.confirm();
                         }
                     }
                 }
@@ -273,7 +320,7 @@ impl Widget for DirPicker {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border))
-            .title(Span::styled(" Scan Folder ", Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(format!(" {} ", self.title), Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
             .title_top(Line::from(Span::styled("[x]", Style::default().fg(Color::Rgb(243, 139, 168)).add_modifier(Modifier::BOLD))).right_aligned())
             .title_bottom(Span::styled(
                 format!(" 🗀 {} ", self.root.to_string_lossy()),
@@ -310,8 +357,8 @@ impl Widget for DirPicker {
                 let selected = gi == self.selected_index;
                 let marker = if selected { "▶ " } else { "  " };
                 let indent = "  ".repeat(row.depth);
-                let glyph = if row.is_root_marker { "" } else if row.expanded { "▾ " } else { "▸ " };
-                let style = if selected { sel_style } else if row.is_root_marker { root_style } else { dir_style };
+                let glyph = if row.is_root_marker { "" } else if !row.is_dir { "♪ " } else if row.expanded { "▾ " } else { "▸ " };
+                let style = if selected { sel_style } else if row.is_root_marker { root_style } else if !row.is_dir { Style::default().fg(Color::Rgb(205, 214, 244)) } else { dir_style };
                 Line::from(vec![
                     Span::styled(marker.to_string(), Style::default().fg(border)),
                     Span::styled(format!("{}{}{}", indent, glyph, row.name), style),

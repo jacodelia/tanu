@@ -131,3 +131,5 @@ skills-lock.json
 # =========================================================
 
 result
+# Auto-incremented build counter
+.build_number

@@ -48,6 +48,8 @@ pub struct App {
     mouse: crate::mouse::MouseHandler,
     viz: crate::audio::viz::AudioViz,
     eq: crate::audio::eq::EqState,
+    /// User-selected MIDI SoundFont, shared with the audio backend.
+    soundfont: crate::audio::backend::SharedSoundFont,
     /// Latest playback state (from PlayerStateChanged) for smart key handling.
     playing: bool,
     volume: f32,
@@ -82,6 +84,7 @@ impl App {
             mouse: crate::mouse::MouseHandler::new(),
             viz: crate::audio::viz::AudioViz::new(),
             eq: crate::audio::eq::EqState::new(),
+            soundfont: std::sync::Arc::new(std::sync::Mutex::new(Self::load_soundfont())),
             playing: false,
             volume: 0.8,
             current_track: None,
@@ -225,6 +228,32 @@ impl App {
         }
     }
 
+    /// Path of the persisted MIDI SoundFont pointer.
+    fn soundfont_file_path() -> std::path::PathBuf {
+        Self::config_file_path()
+            .parent()
+            .map(|p| p.join("soundfont.txt"))
+            .unwrap_or_else(|| std::path::PathBuf::from("soundfont.txt"))
+    }
+
+    /// Load the persisted SoundFont selection, if any and still present.
+    fn load_soundfont() -> Option<std::path::PathBuf> {
+        let p = std::fs::read_to_string(Self::soundfont_file_path()).ok()?;
+        let pb = std::path::PathBuf::from(p.trim());
+        pb.is_file().then_some(pb)
+    }
+
+    /// Persist the chosen SoundFont path.
+    fn save_soundfont(path: &std::path::Path) {
+        let f = Self::soundfont_file_path();
+        if let Some(parent) = f.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Err(e) = std::fs::write(&f, path.to_string_lossy().as_bytes()) {
+            tracing::warn!(error = %e, "Failed to save soundfont");
+        }
+    }
+
     /// Spawn the audio player on a dedicated OS thread.
     /// Returns a sender for sending commands to the player.
     /// Also spawns a tokio task that forwards relevant events
@@ -289,8 +318,9 @@ impl App {
         let paths = paths.clone();
         let viz = self.viz.clone();
         let eq = self.eq.clone();
+        let soundfont = self.soundfont.clone();
         std::thread::spawn(move || {
-            let backend = match RodioBackend::new(viz, eq) {
+            let backend = match RodioBackend::new(viz, eq, soundfont) {
                 Ok(b) => Box::new(b),
                 Err(e) => {
                     tracing::error!("Failed to create audio backend: {}", e);
@@ -923,6 +953,19 @@ impl App {
             return;
         }
 
+        // MIDI SoundFont chosen in the file picker (EDIT → SoundFont).
+        if let Some(path) = input.strip_prefix("set_soundfont:") {
+            let pb = PathBuf::from(path.trim());
+            if pb.is_file() {
+                *self.soundfont.lock().unwrap() = Some(pb.clone());
+                Self::save_soundfont(&pb);
+                self.screen.show_popup_info("SoundFont", format!("MIDI will use:\n{}", pb.to_string_lossy()));
+            } else {
+                self.screen.show_popup_error("SoundFont", format!("Not a file:\n{}", path));
+            }
+            return;
+        }
+
         // Typography color (EDIT → Text Color). Sets the global primary/accent
         // color used by panel titles and the brand; redraw everything.
         if let Some(hex) = input.strip_prefix("text_color:") {
@@ -945,6 +988,7 @@ impl App {
                 ],
                 "edit" => vec![
                     crate::widgets::context_menu::MenuItem { label: "Sound Source...".into(), command: "set_source".into() },
+                    crate::widgets::context_menu::MenuItem { label: "SoundFont (.sf2)...".into(), command: "pick_soundfont".into() },
                     crate::widgets::context_menu::MenuItem { label: "Text Color...".into(), command: format!("menu:color:{}", x) },
                 ],
                 "color" => crate::theme::PRIMARY_PALETTE
@@ -1196,6 +1240,20 @@ impl App {
                 self.screen.mark_dirty();
                 Ok(())
             }
+            "pick_soundfont" => {
+                // Start where the current SoundFont lives, else home.
+                let start = self
+                    .soundfont
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+                    .or_else(dirs::home_dir)
+                    .unwrap_or_else(|| PathBuf::from("/"));
+                self.screen.show_file_picker(start, vec!["sf2".into()], "set_soundfont", "Select SoundFont");
+                self.screen.mark_dirty();
+                Ok(())
+            }
             "open_file" => {
                 self.screen.show_popup_input("Open File — enter path", "play_file".into());
                 self.screen.mark_dirty();
@@ -1223,7 +1281,7 @@ impl App {
                 const TANU_ART: &str = include_str!("../widgets/tanu_art.txt");
                 self.screen.show_popup_about(
                     "About Tanu",
-                    format!("Tanu {} — a terminal music player in Rust (cmus-inspired)", env!("CARGO_PKG_VERSION")),
+                    format!("Tanu {} — a terminal music player in Rust (cmus-inspired)", env!("TANU_VERSION")),
                     TANU_ART,
                 );
                 self.screen.mark_dirty();

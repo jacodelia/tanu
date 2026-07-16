@@ -18,7 +18,7 @@ use crate::events::{Event, KeyCode, MouseAction};
 use crate::widgets::{EventResult, Widget};
 
 /// Playable media extensions (lowercase).
-const MEDIA_EXTS: &[&str] = &["mp3", "flac", "ogg", "opus", "wav", "m4a", "aac", "wma"];
+const MEDIA_EXTS: &[&str] = &["mp3", "flac", "ogg", "opus", "wav", "m4a", "aac", "wma", "mid", "midi"];
 
 fn is_media(path: &Path) -> bool {
     path.extension()

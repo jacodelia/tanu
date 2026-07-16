@@ -100,6 +100,17 @@ impl Widget for Equalizer {
                 }
                 EventResult::NotConsumed
             }
+            // Wheel over a band nudges just that band's gain.
+            MouseAction::ScrollUp(..) | MouseAction::ScrollDown(..) => {
+                if let Some(band) = self.band_x.iter().position(|(s, e)| x >= *s && x < *e) {
+                    let step = if matches!(action, MouseAction::ScrollUp(..)) { 1.0 } else { -1.0 };
+                    self.selected = band;
+                    self.eq.adjust_gain(band, step);
+                    self.dirty = true;
+                    return EventResult::Consumed;
+                }
+                EventResult::NotConsumed
+            }
             _ => EventResult::NotConsumed,
         }
     }

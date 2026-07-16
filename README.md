@@ -49,9 +49,11 @@ radio-cassette transport deck — keyboard or mouse.
   A numeric monitor shows the band you're moving (freq + signed dB).
 - **Seek strip** — under the visualizer: the now-playing track name plus a
   `00:42 ████░░ 03:15` bar. Click or drag it to jump anywhere in the track.
-- **Album art** — the largest embedded cover (front-cover preferred) rendered as
-  a half-block mosaic, aspect-preserved and Lanczos3-scaled (no image protocol
-  needed; works in any terminal).
+- **Album art** — folder images first (a file named `cover` always wins), else
+  the largest embedded cover; rendered as a half-block mosaic, aspect-preserved
+  and Lanczos3-scaled (no image protocol needed; works in any terminal). When the
+  folder holds several images, a `‹ i/n ›` bar pages left/right (click the arrows
+  or scroll the wheel over the cover).
 - **Radio-cassette transport deck** — prev / play-pause / stop / next /
   shuffle / repeat and a horizontal volume bar. All clickable. (Playback
   progress lives in the seek strip under the visualizer.)
@@ -59,7 +61,9 @@ radio-cassette transport deck — keyboard or mouse.
   quit), EDIT (sound source,
   Text Color — a centered modal palette with colored swatches; the pick retints
   tanu's whole UI: borders, tree, tape deck, titles), ABOUT.
-- **Formats** — MP3, FLAC, OGG, Opus, WAV, M4A (via symphonia).
+- **Formats** — MP3, FLAC, OGG, Opus, WAV, M4A (via symphonia). MIDI (`.mid`)
+  plays through `fluidsynth` + a SoundFont — install fluidsynth and point
+  `$TANU_SOUNDFONT` at a `.sf2` (else tanu searches common SoundFont dirs).
 - **Responsive** — adapts from a 5" screen upward.
 
 ## Build & run
@@ -125,8 +129,43 @@ cargo bench             # criterion (db_benchmark)
 
 Optional feature flags: `http-plugins` (reqwest), `wasm-plugins` (wasmtime).
 
+**Versioning** — `build.rs` stamps `TANU_VERSION` as `v<major>.<minor>.<build>`
+(major/minor from `Cargo.toml`, build auto-incremented every build and stored in
+the gitignored `.build_number`), e.g. `v1.12.193`. Shown in the About modal.
+
 See [`docs/roadmap.md`](docs/roadmap.md) for what's done and what's next, and
 [`docs/adr.md`](docs/adr.md) for architecture decisions.
+
+## Packaging / releases
+
+One command builds every Linux package — `.deb` + `.rpm` for x86_64, arm64, and
+armv7 — into `./dist`, showing a step progress bar:
+
+```sh
+cargo install cargo-deb cargo-generate-rpm cross   # one-time
+scripts/release.sh                                  # needs Docker for the ARM targets
+```
+
+```text
+Building tanu release packages → ./dist
+[############------------------]  44% (4/9) aarch64: .deb
+```
+
+Native x86_64 builds with `cargo`; the ARM targets cross-compile through `cross`
+(Docker) — `Cross.toml` installs the target-arch ALSA dev libs in the build
+container. Package contents/deps are declared under `[package.metadata.deb]` and
+`[package.metadata.generate-rpm]` in `Cargo.toml` (ALSA is an automatic
+dependency; `fluidsynth` is recommended for MIDI). Output:
+
+```text
+tanu_1.12.0-1_amd64.deb   tanu-1.12.0-1.x86_64.rpm
+tanu_1.12.0-1_arm64.deb   tanu-1.12.0-1.aarch64.rpm
+tanu_1.12.0-1_armhf.deb   tanu-1.12.0-1.armv7hl.rpm
+```
+
+## Layout
+
+![Layout](docs/layout.png)
 
 ## License
 

@@ -1,0 +1,14 @@
+# ALSA dev headers/libs for the target arch inside the cross container
+# (alsa-sys links libasound; the base images don't ship the cross libs).
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture arm64",
+    "apt-get update && apt-get install --assume-yes libasound2-dev:arm64",
+]
+
+[target.armv7-unknown-linux-gnueabihf]
+pre-build = [
+    "dpkg --add-architecture armhf",
+    "apt-get update && apt-get install --assume-yes libasound2-dev:armhf",
+]

@@ -221,6 +221,11 @@ impl Screen {
         self.dir_picker.show(start);
     }
 
+    /// Open a file picker for `exts`, emitting `<prefix>:<file>` on confirm.
+    pub fn show_file_picker(&mut self, start: std::path::PathBuf, exts: Vec<String>, prefix: &str, title: &str) {
+        self.dir_picker.show_files(start, exts, prefix, title);
+    }
+
     pub fn hide_context_menu(&mut self) {
         self.context_menu.hide();
     }

@@ -14,6 +14,7 @@ pub mod config;
 pub mod core;
 pub mod database;
 pub mod events;
+pub mod i18n;
 pub mod input;
 pub mod library;
 pub mod mouse;

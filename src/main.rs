@@ -10,6 +10,7 @@ mod config;
 mod core;
 mod database;
 mod events;
+mod i18n;
 mod input;
 mod library;
 mod mouse;

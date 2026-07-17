@@ -5,6 +5,9 @@
 # Build artifacts
 /target/
 
+# Release artifacts — published to GitHub Releases, not committed
+/release/
+
 # Cargo lock:
 # - Mantén Cargo.lock en apps binarias
 # - Ignóralo solo si publicas una librería

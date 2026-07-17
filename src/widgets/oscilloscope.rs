@@ -186,7 +186,10 @@ impl Widget for Oscilloscope {
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::KeyPress(k) if self.focused => {
-                if matches!(k.code, KeyCode::Char('m') | KeyCode::Tab) {
+                if matches!(
+                    k.code,
+                    KeyCode::Char('m') | KeyCode::Tab | KeyCode::Left | KeyCode::Right
+                ) {
                     self.mode = if self.mode == Mode::Wave {
                         Mode::Spec
                     } else {

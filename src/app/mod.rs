@@ -116,6 +116,9 @@ impl App {
         if let Some(ref hex) = cfg.ui.text_color {
             crate::theme::set_primary_hex(hex);
         }
+        if let Some(ref lang) = cfg.ui.language {
+            crate::i18n::set_language(crate::i18n::Language::from_code(lang));
+        }
         let mut screen = Screen::new(theme);
 
         let menu_bar = crate::widgets::menu_bar::MenuBar::new();
@@ -1061,6 +1064,23 @@ impl App {
             return;
         }
 
+        if let Some(code) = input.strip_prefix("set_language:") {
+            crate::i18n::set_language(crate::i18n::Language::from_code(code.trim()));
+            self.screen.hide_context_menu();
+            self.screen.mark_dirty();
+            // Persist so the choice survives restarts.
+            let cfg_path = Self::config_file_path();
+            let mut cfg = crate::config::Config::load_or_default(&cfg_path);
+            cfg.ui.language = Some(code.trim().to_string());
+            if let Some(parent) = cfg_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if let Err(e) = cfg.save(&cfg_path) {
+                tracing::warn!(error = %e, "Failed to save language");
+            }
+            return;
+        }
+
         // Open a dropdown menu from the menu bar: "menu:<name>:<x>".
         if let Some(rest) = input.strip_prefix("menu:") {
             let mut it = rest.splitn(2, ':');
@@ -1069,32 +1089,43 @@ impl App {
             let items = match name {
                 "file" => vec![
                     crate::widgets::context_menu::MenuItem {
-                        label: "Open File...".into(),
+                        label: crate::i18n::tr("file.open").into(),
                         command: "open_file".into(),
                     },
                     crate::widgets::context_menu::MenuItem {
-                        label: "Scan Folder...".into(),
+                        label: crate::i18n::tr("file.scan").into(),
                         command: "scan_dir".into(),
                     },
                     crate::widgets::context_menu::MenuItem {
-                        label: "Quit".into(),
+                        label: crate::i18n::tr("file.quit").into(),
                         command: "quit".into(),
                     },
                 ],
                 "edit" => vec![
                     crate::widgets::context_menu::MenuItem {
-                        label: "Sound Source...".into(),
+                        label: crate::i18n::tr("edit.source").into(),
                         command: "set_source".into(),
                     },
                     crate::widgets::context_menu::MenuItem {
-                        label: "SoundFont (.sf2)...".into(),
+                        label: crate::i18n::tr("edit.soundfont").into(),
                         command: "pick_soundfont".into(),
                     },
                     crate::widgets::context_menu::MenuItem {
-                        label: "Text Color...".into(),
+                        label: crate::i18n::tr("edit.color").into(),
                         command: format!("menu:color:{}", x),
                     },
+                    crate::widgets::context_menu::MenuItem {
+                        label: crate::i18n::tr("edit.language").into(),
+                        command: "menu:language".into(),
+                    },
                 ],
+                "language" => crate::i18n::LANGUAGES
+                    .iter()
+                    .map(|(lang, name)| crate::widgets::context_menu::MenuItem {
+                        label: (*name).to_string(),
+                        command: format!("set_language:{}", lang.code()),
+                    })
+                    .collect(),
                 "color" => crate::theme::PRIMARY_PALETTE
                     .iter()
                     .map(|(name, hex)| crate::widgets::context_menu::MenuItem {
@@ -1105,11 +1136,15 @@ impl App {
                 _ => vec![],
             };
             if !items.is_empty() {
-                if name == "color" {
+                match name {
                     // Palette picker is a centered modal with colored swatches.
-                    self.screen.show_modal_menu("Text Color", items);
-                } else {
-                    self.screen.show_context_menu(x, 1, items);
+                    "color" => self
+                        .screen
+                        .show_modal_menu(crate::i18n::tr("title.color"), items),
+                    "language" => self
+                        .screen
+                        .show_modal_menu(crate::i18n::tr("title.language"), items),
+                    _ => self.screen.show_context_menu(x, 1, items),
                 }
                 self.screen.mark_dirty();
             }
@@ -1407,8 +1442,9 @@ impl App {
                 self.screen.show_popup_about(
                     "About Tanu",
                     format!(
-                        "Tanu {} — a terminal music player in Rust (cmus-inspired)",
-                        env!("TANU_VERSION")
+                        "Tanu {} — {}",
+                        env!("TANU_VERSION"),
+                        crate::i18n::tr("about.desc")
                     ),
                     TANU_ART,
                 );

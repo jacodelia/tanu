@@ -30,10 +30,11 @@ pub struct MenuBar {
     segments: Vec<Segment>,
 }
 
+/// (translation key, command) per top-level menu. Labels resolve at render.
 const MENUS: [(&str, &str); 3] = [
-    ("FILE", "menu:file"),
-    ("EDIT", "menu:edit"),
-    ("ABOUT", "about"),
+    ("menu.file", "menu:file"),
+    ("menu.edit", "menu:edit"),
+    ("menu.about", "about"),
 ];
 
 impl MenuBar {
@@ -82,12 +83,12 @@ impl MenuBar {
             });
         };
 
-        for (label, cmd) in MENUS.iter() {
+        for (key, cmd) in MENUS.iter() {
             push(
                 &mut spans,
                 &mut self.segments,
                 &mut x,
-                format!(" {} ", label),
+                format!(" {} ", crate::i18n::tr(key)),
                 menu_style,
                 cmd.to_string(),
             );

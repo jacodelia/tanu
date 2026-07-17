@@ -8,13 +8,17 @@ use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 use crate::core::id::WidgetId;
-use crate::events::{Event, MouseAction};
+use crate::events::{Event, KeyCode, MouseAction};
 use crate::widgets::{EventResult, Widget};
+
+/// Seconds jumped per Left/Right arrow when the bar is focused.
+const SEEK_STEP_SECS: f64 = 5.0;
 
 pub struct SeekBar {
     id: WidgetId,
     rect: Rect,
     dirty: bool,
+    focused: bool,
     position_secs: f64,
     duration_secs: f64,
     is_playing: bool,
@@ -29,6 +33,7 @@ impl SeekBar {
             id: WidgetId::new(),
             rect: Rect::default(),
             dirty: true,
+            focused: false,
             position_secs: 0.0,
             duration_secs: 0.0,
             is_playing: false,
@@ -79,21 +84,38 @@ impl Widget for SeekBar {
         self.dirty = false;
     }
     fn is_focused(&self) -> bool {
-        false
+        self.focused
     }
-    fn is_focusable(&self) -> bool {
-        false
+    fn on_focus(&mut self) {
+        self.focused = true;
+        self.dirty = true;
+    }
+    fn on_blur(&mut self) {
+        self.focused = false;
+        self.dirty = true;
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
-        if let Event::PlayerStateChanged(state) = event {
-            self.position_secs = state.position_secs;
-            self.duration_secs = state.duration_secs;
-            self.is_playing = state.is_playing;
-            self.dirty = true;
-            return EventResult::Consumed;
+        match event {
+            Event::PlayerStateChanged(state) => {
+                self.position_secs = state.position_secs;
+                self.duration_secs = state.duration_secs;
+                self.is_playing = state.is_playing;
+                self.dirty = true;
+                EventResult::Consumed
+            }
+            // When focused, Left/Right arrows scrub the playhead (song or MIDI).
+            Event::KeyPress(k) if self.focused && self.duration_secs > 0.0 => {
+                let delta = match k.code {
+                    KeyCode::Left => -SEEK_STEP_SECS,
+                    KeyCode::Right => SEEK_STEP_SECS,
+                    _ => return EventResult::NotConsumed,
+                };
+                let pos = (self.position_secs + delta).clamp(0.0, self.duration_secs);
+                EventResult::Event(Event::Seek(pos))
+            }
+            _ => EventResult::NotConsumed,
         }
-        EventResult::NotConsumed
     }
 
     fn handle_mouse(&mut self, x: u16, y: u16, action: &MouseAction) -> EventResult {
@@ -125,11 +147,20 @@ impl Widget for SeekBar {
         } else {
             self.now_playing.as_str()
         };
+        // When focused, show a ◀ ▶ hint so the arrow-seek affordance is visible.
+        let name_text = if self.focused {
+            format!("♪ {}  ◀ ▶", name)
+        } else {
+            format!("♪ {}", name)
+        };
+        let name_fg = if self.focused {
+            crate::theme::primary()
+        } else {
+            Color::Rgb(166, 227, 161)
+        };
         let name_line = Line::from(Span::styled(
-            format!("♪ {}", name),
-            Style::default()
-                .fg(Color::Rgb(166, 227, 161))
-                .add_modifier(Modifier::BOLD),
+            name_text,
+            Style::default().fg(name_fg).add_modifier(Modifier::BOLD),
         ));
         frame.render_widget(
             Paragraph::new(name_line),

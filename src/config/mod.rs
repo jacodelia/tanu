@@ -63,6 +63,9 @@ pub struct UiConfig {
     /// Primary/accent typography color as `#rrggbb` (EDIT → Text Color).
     #[serde(default)]
     pub text_color: Option<String>,
+    /// UI language code (`en`, `it`, `fr`, ...). EDIT → Language.
+    #[serde(default)]
+    pub language: Option<String>,
     /// Mouse enabled.
     pub mouse_enabled: bool,
     /// Frame rate cap for rendering.
@@ -130,6 +133,7 @@ impl Default for UiConfig {
         Self {
             theme: "default".to_string(),
             text_color: None,
+            language: None,
             mouse_enabled: true,
             max_fps: 60,
             show_status_bar: true,

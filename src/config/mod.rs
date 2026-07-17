@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Top-level application configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub general: GeneralConfig,
     pub library: LibraryConfig,
@@ -80,18 +80,6 @@ pub struct KeybindingsConfig {
     pub bindings_path: PathBuf,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            general: GeneralConfig::default(),
-            library: LibraryConfig::default(),
-            audio: AudioConfig::default(),
-            ui: UiConfig::default(),
-            keybindings: KeybindingsConfig::default(),
-        }
-    }
-}
-
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
@@ -108,9 +96,7 @@ impl Default for GeneralConfig {
 impl Default for LibraryConfig {
     fn default() -> Self {
         Self {
-            music_dirs: vec![
-                dirs::audio_dir().unwrap_or_else(|| PathBuf::from("~/Music")),
-            ],
+            music_dirs: vec![dirs::audio_dir().unwrap_or_else(|| PathBuf::from("~/Music"))],
             extensions: vec![
                 "mp3".to_string(),
                 "flac".to_string(),
@@ -284,13 +270,11 @@ impl BindingsConfig {
                     description: Some("Quit".to_string()),
                 },
             ],
-            insert: vec![
-                KeyBinding {
-                    key: "escape".to_string(),
-                    action: "normal_mode".to_string(),
-                    description: Some("Return to normal mode".to_string()),
-                },
-            ],
+            insert: vec![KeyBinding {
+                key: "escape".to_string(),
+                action: "normal_mode".to_string(),
+                description: Some("Return to normal mode".to_string()),
+            }],
             command: vec![
                 KeyBinding {
                     key: "escape".to_string(),

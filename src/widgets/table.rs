@@ -176,7 +176,8 @@ impl Widget for TableWidget {
                             EventResult::Consumed
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
-                            self.selected_index = (self.selected_index + 1).min(self.rows.len().saturating_sub(1));
+                            self.selected_index =
+                                (self.selected_index + 1).min(self.rows.len().saturating_sub(1));
                             self.scroll_to_selection();
                             EventResult::Consumed
                         }
@@ -185,9 +186,7 @@ impl Widget for TableWidget {
                             self.scroll_to_selection();
                             EventResult::Consumed
                         }
-                        KeyCode::Char('y') => {
-                            self.yank_selection()
-                        }
+                        KeyCode::Char('y') => self.yank_selection(),
                         KeyCode::Char('V') if key.modifiers.shift => {
                             self.visual_mode = false;
                             self.dirty = true;
@@ -266,7 +265,10 @@ impl Widget for TableWidget {
                         }
                         KeyCode::Enter => {
                             if let Some(row) = self.selected_row() {
-                                EventResult::Event(Event::Command(format!("select_track:{}", row.id)))
+                                EventResult::Event(Event::Command(format!(
+                                    "select_track:{}",
+                                    row.id
+                                )))
                             } else {
                                 EventResult::Consumed
                             }
@@ -292,7 +294,8 @@ impl Widget for TableWidget {
                         self.dirty = true;
                         self.scroll_to_selection();
                         return EventResult::Event(Event::Command(format!(
-                            "move_item:{}:{}", from, row_idx
+                            "move_item:{}:{}",
+                            from, row_idx
                         )));
                     }
                 }
@@ -348,13 +351,23 @@ impl Widget for TableWidget {
             crate::theme::border()
         };
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
-        let visual_style = Style::default().fg(Color::Rgb(205, 214, 244)).bg(crate::theme::border());
+        let highlight_style = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::border_focused());
+        let visual_style = Style::default()
+            .fg(Color::Rgb(205, 214, 244))
+            .bg(crate::theme::border());
         let normal_style = Style::default().fg(Color::Rgb(205, 214, 244));
 
         let title_text = if self.visual_mode {
             let (s, e) = self.visual_range();
-            format!(" {} [{}-{}/{}] VISUAL ", self.title, s + 1, e + 1, self.rows.len())
+            format!(
+                " {} [{}-{}/{}] VISUAL ",
+                self.title,
+                s + 1,
+                e + 1,
+                self.rows.len()
+            )
         } else {
             format!(
                 " {} [{}/{}] ",
@@ -389,11 +402,7 @@ impl Widget for TableWidget {
                 let in_visual = self.is_in_visual_range(global_idx);
                 let is_cursor = global_idx == self.selected_index;
 
-                let prefix = if is_cursor {
-                    "▶ "
-                } else {
-                    "  "
-                };
+                let prefix = if is_cursor { "▶ " } else { "  " };
                 let text = format!("{}{}", prefix, row.display);
 
                 let style = if is_cursor {

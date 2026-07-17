@@ -119,14 +119,30 @@ impl Default for AlbumArt {
 }
 
 impl Widget for AlbumArt {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { false }
-    fn is_focusable(&self) -> bool { false }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        false
+    }
+    fn is_focusable(&self) -> bool {
+        false
+    }
 
     fn handle_event(&mut self, _event: &Event) -> EventResult {
         EventResult::NotConsumed
@@ -136,16 +152,28 @@ impl Widget for AlbumArt {
         match action {
             MouseAction::Press(..) | MouseAction::DoubleClick(..) => {
                 if let Some((ry, x0, x1)) = self.prev_btn {
-                    if y == ry && x >= x0 && x < x1 { self.step(-1); return EventResult::Consumed; }
+                    if y == ry && x >= x0 && x < x1 {
+                        self.step(-1);
+                        return EventResult::Consumed;
+                    }
                 }
                 if let Some((ry, x0, x1)) = self.next_btn {
-                    if y == ry && x >= x0 && x < x1 { self.step(1); return EventResult::Consumed; }
+                    if y == ry && x >= x0 && x < x1 {
+                        self.step(1);
+                        return EventResult::Consumed;
+                    }
                 }
                 EventResult::NotConsumed
             }
             // Wheel anywhere over the cover pages through the folder images.
-            MouseAction::ScrollUp(..) | MouseAction::ScrollLeft(..) => { self.step(-1); EventResult::Consumed }
-            MouseAction::ScrollDown(..) | MouseAction::ScrollRight(..) => { self.step(1); EventResult::Consumed }
+            MouseAction::ScrollUp(..) | MouseAction::ScrollLeft(..) => {
+                self.step(-1);
+                EventResult::Consumed
+            }
+            MouseAction::ScrollDown(..) | MouseAction::ScrollRight(..) => {
+                self.step(1);
+                EventResult::Consumed
+            }
             _ => EventResult::NotConsumed,
         }
     }
@@ -154,7 +182,12 @@ impl Widget for AlbumArt {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(crate::theme::border()))
-            .title(Span::styled(" ♫ Cover ", Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)));
+            .title(Span::styled(
+                " ♫ Cover ",
+                Style::default()
+                    .fg(crate::theme::primary())
+                    .add_modifier(Modifier::BOLD),
+            ));
         let inner = block.inner(area);
         frame.render_widget(block, area);
         self.prev_btn = None;
@@ -165,9 +198,21 @@ impl Widget for AlbumArt {
 
         // Reserve a bottom row for the ‹ i/n › pager when there are >1 images.
         let has_nav = self.images.len() > 1 && inner.height >= 2;
-        let art_h = if has_nav { inner.height - 1 } else { inner.height };
+        let art_h = if has_nav {
+            inner.height - 1
+        } else {
+            inner.height
+        };
         let lines = self.art_lines(inner.width, art_h);
-        frame.render_widget(Paragraph::new(lines), Rect { x: inner.x, y: inner.y, width: inner.width, height: art_h });
+        frame.render_widget(
+            Paragraph::new(lines),
+            Rect {
+                x: inner.x,
+                y: inner.y,
+                width: inner.width,
+                height: art_h,
+            },
+        );
 
         if has_nav {
             let label = format!("‹  {}/{}  ›", self.index + 1, self.images.len());
@@ -179,9 +224,19 @@ impl Widget for AlbumArt {
             self.next_btn = Some((nav_y - area.y, nav_x - area.x + lw - 1, nav_x - area.x + lw));
             let styled = Line::from(Span::styled(
                 label,
-                Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(crate::theme::primary())
+                    .add_modifier(Modifier::BOLD),
             ));
-            frame.render_widget(Paragraph::new(styled), Rect { x: nav_x, y: nav_y, width: lw, height: 1 });
+            frame.render_widget(
+                Paragraph::new(styled),
+                Rect {
+                    x: nav_x,
+                    y: nav_y,
+                    width: lw,
+                    height: 1,
+                },
+            );
         }
     }
 }
@@ -201,7 +256,12 @@ fn gather_dir_images(dir: &Path) -> Vec<PathBuf> {
             .collect(),
         Err(_) => Vec::new(),
     };
-    let stem_lower = |p: &Path| p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    let stem_lower = |p: &Path| {
+        p.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase()
+    };
     files.sort_by(|a, b| {
         // Rank a file named exactly "cover" first.
         let ra = (stem_lower(a) != "cover") as u8;
@@ -223,13 +283,17 @@ fn extract_cover(path: &PathBuf) -> Option<image::DynamicImage> {
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag())?;
     let best = tag.pictures().iter().max_by_key(|p| {
         // u64 so the front-cover bonus doesn't overflow usize on 32-bit targets.
-        let front_bonus: u64 = if p.pic_type() == PictureType::CoverFront { 1 << 40 } else { 0 };
+        let front_bonus: u64 = if p.pic_type() == PictureType::CoverFront {
+            1 << 40
+        } else {
+            0
+        };
         front_bonus + p.data().len() as u64
     })?;
     image::load_from_memory(best.data()).ok()
 }
 
-fn track_caption(path: &PathBuf) -> String {
+fn track_caption(path: &Path) -> String {
     path.file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default()
@@ -246,7 +310,9 @@ fn render_halfblocks(img: &image::DynamicImage, w: u16, h: u16) -> Vec<Line<'sta
         return Vec::new();
     }
     // resize() keeps aspect ratio, fitting inside the canvas.
-    let rgb = img.resize(canvas_w, canvas_h, FilterType::Lanczos3).to_rgb8();
+    let rgb = img
+        .resize(canvas_w, canvas_h, FilterType::Lanczos3)
+        .to_rgb8();
     let (iw, ih) = rgb.dimensions();
     let ox = (canvas_w.saturating_sub(iw)) / 2;
     let oy = (canvas_h.saturating_sub(ih)) / 2;

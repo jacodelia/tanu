@@ -60,11 +60,19 @@ impl ProgressBar {
     fn keys(&self) -> [(&'static str, Button, bool); 6] {
         [
             ("◀◀", Button::Prev, false),
-            (if self.is_playing { " ‖ " } else { " ▶ " }, Button::PlayPause, self.is_playing),
+            (
+                if self.is_playing { " ‖ " } else { " ▶ " },
+                Button::PlayPause,
+                self.is_playing,
+            ),
             (" ■ ", Button::Stop, false),
             ("▶▶", Button::Next, false),
             (" ⇄ ", Button::Shuffle, self.shuffle),
-            (" ↻ ", Button::Repeat, !matches!(self.repeat, RepeatMode::Off)),
+            (
+                " ↻ ",
+                Button::Repeat,
+                !matches!(self.repeat, RepeatMode::Off),
+            ),
         ]
     }
 }
@@ -76,14 +84,30 @@ impl Default for ProgressBar {
 }
 
 impl Widget for ProgressBar {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { false }
-    fn is_focusable(&self) -> bool { false }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        false
+    }
+    fn is_focusable(&self) -> bool {
+        false
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if let Event::PlayerStateChanged(state) = event {
@@ -99,7 +123,10 @@ impl Widget for ProgressBar {
 
     fn handle_mouse(&mut self, x: u16, y: u16, action: &crate::events::MouseAction) -> EventResult {
         use crate::events::MouseAction;
-        if !matches!(action, MouseAction::Press(..) | MouseAction::DoubleClick(..)) {
+        if !matches!(
+            action,
+            MouseAction::Press(..) | MouseAction::DoubleClick(..)
+        ) {
             return EventResult::NotConsumed;
         }
         // Click on the volume bar → set volume by x position.
@@ -113,7 +140,11 @@ impl Widget for ProgressBar {
         if y < self.key_rows.0 || y >= self.key_rows.1 {
             return EventResult::NotConsumed;
         }
-        let hit = self.buttons.iter().find(|(s, e, _)| x >= *s && x < *e).map(|(_, _, b)| *b);
+        let hit = self
+            .buttons
+            .iter()
+            .find(|(s, e, _)| x >= *s && x < *e)
+            .map(|(_, _, b)| *b);
         if let Some(button) = hit {
             let event = match button {
                 Button::Prev => Event::Previous,
@@ -139,7 +170,9 @@ impl Widget for ProgressBar {
             .border_style(Style::default().fg(crate::theme::border()))
             .title(Span::styled(
                 " ▚ TAPE DECK ▞ ",
-                Style::default().fg(Color::Rgb(249, 226, 175)).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Rgb(249, 226, 175))
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(deck_bg));
         let inner = panel.inner(area);
@@ -152,7 +185,9 @@ impl Widget for ProgressBar {
         // Build the three-row key bank (top / label / bottom).
         self.buttons.clear();
         let key_style = Style::default().fg(Color::Rgb(186, 194, 222));
-        let active_style = Style::default().fg(Color::Rgb(166, 227, 161)).add_modifier(Modifier::BOLD);
+        let active_style = Style::default()
+            .fg(Color::Rgb(166, 227, 161))
+            .add_modifier(Modifier::BOLD);
 
         let mut top: Vec<Span> = Vec::new();
         let mut mid: Vec<Span> = Vec::new();
@@ -176,7 +211,12 @@ impl Widget for ProgressBar {
         ];
         for (row_y, line) in rows {
             if row_y < inner.y + inner.height {
-                let r = Rect { x: inner.x, y: row_y, width: inner.width, height: 1 };
+                let r = Rect {
+                    x: inner.x,
+                    y: row_y,
+                    width: inner.width,
+                    height: 1,
+                };
                 frame.render_widget(Paragraph::new(line).style(Style::default().bg(deck_bg)), r);
             }
         }
@@ -189,7 +229,8 @@ impl Widget for ProgressBar {
             let label = " VOL ";
             let pct = (self.volume * 100.0).round() as u16;
             let suffix = format!(" {:>3}%", pct);
-            let bar_w = inner.width
+            let bar_w = inner
+                .width
                 .saturating_sub(label.chars().count() as u16 + suffix.chars().count() as u16 + 2)
                 .max(4);
             let filled = (self.volume.clamp(0.0, 1.0) * bar_w as f32) as usize;
@@ -197,16 +238,31 @@ impl Widget for ProgressBar {
             let bar_start = inner.x + label.chars().count() as u16 + 1; // after "▐"
             let row_y = inner.y + 3;
             // Local coords for hit-testing.
-            self.vol_region = Some((row_y - area.y, bar_start - area.x, bar_start + bar_w - area.x));
+            self.vol_region = Some((
+                row_y - area.y,
+                bar_start - area.x,
+                bar_start + bar_w - area.x,
+            ));
             let line = Line::from(vec![
                 Span::styled(label, Style::default().fg(Color::Rgb(249, 226, 175))),
                 Span::styled("▐", Style::default().fg(crate::theme::border())),
-                Span::styled("▓".repeat(filled), Style::default().fg(crate::theme::border_focused())),
-                Span::styled("░".repeat(empty), Style::default().fg(crate::theme::border())),
+                Span::styled(
+                    "▓".repeat(filled),
+                    Style::default().fg(crate::theme::border_focused()),
+                ),
+                Span::styled(
+                    "░".repeat(empty),
+                    Style::default().fg(crate::theme::border()),
+                ),
                 Span::styled("▌", Style::default().fg(crate::theme::border())),
                 Span::styled(suffix, Style::default().fg(Color::Rgb(186, 194, 222))),
             ]);
-            let r = Rect { x: inner.x, y: row_y, width: inner.width, height: 1 };
+            let r = Rect {
+                x: inner.x,
+                y: row_y,
+                width: inner.width,
+                height: 1,
+            };
             frame.render_widget(Paragraph::new(line).style(bg), r);
         }
     }

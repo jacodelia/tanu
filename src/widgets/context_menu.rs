@@ -31,6 +31,12 @@ pub struct ContextMenu {
     close_region: Option<(u16, u16, u16)>,
 }
 
+impl Default for ContextMenu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContextMenu {
     pub fn new() -> Self {
         Self {
@@ -77,7 +83,9 @@ impl ContextMenu {
     }
 
     fn selected_command(&self) -> Option<&str> {
-        self.items.get(self.selected_index).map(|i| i.command.as_str())
+        self.items
+            .get(self.selected_index)
+            .map(|i| i.command.as_str())
     }
 
     fn menu_height(&self) -> u16 {
@@ -92,8 +100,17 @@ impl ContextMenu {
     }
 
     fn menu_width(&self) -> u16 {
-        let items = self.items.iter().map(|i| i.label.chars().count()).max().unwrap_or(10);
-        let title = self.modal_title.as_ref().map(|t| t.chars().count()).unwrap_or(0);
+        let items = self
+            .items
+            .iter()
+            .map(|i| i.label.chars().count())
+            .max()
+            .unwrap_or(10);
+        let title = self
+            .modal_title
+            .as_ref()
+            .map(|t| t.chars().count())
+            .unwrap_or(0);
         // +2 swatch, +4 borders/prefix.
         items.max(title) as u16 + 6
     }
@@ -101,19 +118,36 @@ impl ContextMenu {
 
 /// If the command is `text_color:#hex`, return the swatch color.
 fn item_color(command: &str) -> Option<Color> {
-    command.strip_prefix("text_color:")
+    command
+        .strip_prefix("text_color:")
         .and_then(crate::theme::parse_color)
 }
 
 impl Widget for ContextMenu {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty || self.visible }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
-    fn is_focusable(&self) -> bool { self.visible }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty || self.visible
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+    fn is_focusable(&self) -> bool {
+        self.visible
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if !self.visible {
@@ -164,8 +198,10 @@ impl Widget for ContextMenu {
                             return EventResult::Consumed;
                         }
                     }
-                    let inside = mx >= self.screen_x && mx < self.screen_x + self.menu_width()
-                        && my >= self.screen_y && my < self.screen_y + self.menu_height();
+                    let inside = mx >= self.screen_x
+                        && mx < self.screen_x + self.menu_width()
+                        && my >= self.screen_y
+                        && my < self.screen_y + self.menu_height();
                     if !inside {
                         self.hide();
                         return EventResult::NotConsumed;
@@ -235,12 +271,19 @@ impl Widget for ContextMenu {
         if let Some(ref title) = self.modal_title {
             block = block.title(Span::styled(
                 format!(" {} ", title),
-                Style::default().fg(crate::theme::primary()).add_modifier(ratatui::style::Modifier::BOLD),
+                Style::default()
+                    .fg(crate::theme::primary())
+                    .add_modifier(ratatui::style::Modifier::BOLD),
             ));
-            block = block.title_top(Line::from(Span::styled(
-                "[x]",
-                Style::default().fg(Color::Rgb(243, 139, 168)).add_modifier(ratatui::style::Modifier::BOLD),
-            )).right_aligned());
+            block = block.title_top(
+                Line::from(Span::styled(
+                    "[x]",
+                    Style::default()
+                        .fg(Color::Rgb(243, 139, 168))
+                        .add_modifier(ratatui::style::Modifier::BOLD),
+                ))
+                .right_aligned(),
+            );
             let x_end = menu_rect.x + menu_rect.width.saturating_sub(1);
             self.close_region = Some((menu_rect.y, x_end.saturating_sub(3), x_end));
         }
@@ -261,7 +304,10 @@ impl Widget for ContextMenu {
                 spans.push(Span::styled("● ", Style::default().fg(c)));
             }
             let label_style = if selected {
-                Style::default().fg(Color::Rgb(30, 30, 46)).bg(highlight_bg).add_modifier(ratatui::style::Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Rgb(30, 30, 46))
+                    .bg(highlight_bg)
+                    .add_modifier(ratatui::style::Modifier::BOLD)
             } else {
                 Style::default().fg(item_color(&item.command).unwrap_or(normal_fg))
             };

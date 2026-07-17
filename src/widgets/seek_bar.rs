@@ -60,14 +60,30 @@ impl Default for SeekBar {
 }
 
 impl Widget for SeekBar {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { false }
-    fn is_focusable(&self) -> bool { false }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        false
+    }
+    fn is_focusable(&self) -> bool {
+        false
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if let Event::PlayerStateChanged(state) = event {
@@ -81,7 +97,10 @@ impl Widget for SeekBar {
     }
 
     fn handle_mouse(&mut self, x: u16, y: u16, action: &MouseAction) -> EventResult {
-        if !matches!(action, MouseAction::Press(..) | MouseAction::Drag(..) | MouseAction::DoubleClick(..)) {
+        if !matches!(
+            action,
+            MouseAction::Press(..) | MouseAction::Drag(..) | MouseAction::DoubleClick(..)
+        ) {
             return EventResult::NotConsumed;
         }
         if let Some((by, start, end)) = self.bar_region {
@@ -101,12 +120,26 @@ impl Widget for SeekBar {
         }
 
         // Row 0: track name.
-        let name = if self.now_playing.is_empty() { "—" } else { self.now_playing.as_str() };
+        let name = if self.now_playing.is_empty() {
+            "—"
+        } else {
+            self.now_playing.as_str()
+        };
         let name_line = Line::from(Span::styled(
             format!("♪ {}", name),
-            Style::default().fg(Color::Rgb(166, 227, 161)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(166, 227, 161))
+                .add_modifier(Modifier::BOLD),
         ));
-        frame.render_widget(Paragraph::new(name_line), Rect { x: area.x, y: area.y, width: area.width, height: 1 });
+        frame.render_widget(
+            Paragraph::new(name_line),
+            Rect {
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: 1,
+            },
+        );
 
         if area.height < 2 {
             return;
@@ -126,20 +159,39 @@ impl Widget for SeekBar {
         let bar_w = area.width.saturating_sub(label_w).max(1) as usize;
         let filled = (frac * bar_w as f64) as usize;
         let empty = bar_w.saturating_sub(filled);
-        let fill_color = if self.is_playing { Color::Rgb(166, 227, 161) } else { Color::Rgb(108, 112, 134) };
+        let fill_color = if self.is_playing {
+            Color::Rgb(166, 227, 161)
+        } else {
+            Color::Rgb(108, 112, 134)
+        };
 
         let bar_start = area.x + pre.chars().count() as u16;
         let row_y = area.y + 1;
         // Local hit region for seeking.
-        self.bar_region = Some((row_y - area.y, bar_start - area.x, bar_start - area.x + bar_w as u16));
+        self.bar_region = Some((
+            row_y - area.y,
+            bar_start - area.x,
+            bar_start - area.x + bar_w as u16,
+        ));
 
         let line = Line::from(vec![
             Span::styled(pre, Style::default().fg(fill_color)),
             Span::styled("█".repeat(filled), Style::default().fg(fill_color)),
-            Span::styled("░".repeat(empty), Style::default().fg(crate::theme::border())),
+            Span::styled(
+                "░".repeat(empty),
+                Style::default().fg(crate::theme::border()),
+            ),
             Span::styled(post, Style::default().fg(Color::Rgb(108, 112, 134))),
         ]);
-        frame.render_widget(Paragraph::new(line), Rect { x: area.x, y: row_y, width: area.width, height: 1 });
+        frame.render_widget(
+            Paragraph::new(line),
+            Rect {
+                x: area.x,
+                y: row_y,
+                width: area.width,
+                height: 1,
+            },
+        );
     }
 }
 
@@ -152,7 +204,11 @@ mod tests {
         let mut sb = SeekBar::new();
         sb.duration_secs = 100.0;
         sb.bar_region = Some((1, 0, 10));
-        let r = sb.handle_mouse(5, 1, &MouseAction::Press(crate::events::MouseButton::Left, 5, 1));
+        let r = sb.handle_mouse(
+            5,
+            1,
+            &MouseAction::Press(crate::events::MouseButton::Left, 5, 1),
+        );
         match r {
             EventResult::Event(Event::Seek(p)) => assert!((p - 50.0).abs() < 5.0),
             _ => panic!("expected seek event"),

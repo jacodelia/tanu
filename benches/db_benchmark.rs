@@ -125,11 +125,13 @@ fn bench_db_query_artists(c: &mut Criterion) {
     c.bench_function("query_all_artists_100k_tracks", |b| {
         b.iter(|| {
             db.with_connection(|conn| {
-                let mut stmt = conn.prepare(
-                    "SELECT a.id, a.name FROM artists a
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT a.id, a.name FROM artists a
                      WHERE EXISTS (SELECT 1 FROM tracks t WHERE t.artist_id = a.id)
-                     ORDER BY a.name"
-                ).unwrap();
+                     ORDER BY a.name",
+                    )
+                    .unwrap();
                 let results: Vec<(String, String)> = stmt
                     .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
                     .unwrap()
@@ -137,7 +139,8 @@ fn bench_db_query_artists(c: &mut Criterion) {
                     .collect();
                 black_box(results.len());
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
         });
     });
 }
@@ -148,11 +151,13 @@ fn bench_db_query_albums(c: &mut Criterion) {
     c.bench_function("query_albums_for_artist_100k", |b| {
         b.iter(|| {
             db.with_connection(|conn| {
-                let mut stmt = conn.prepare(
-                    "SELECT al.id, al.title FROM albums al
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT al.id, al.title FROM albums al
                      WHERE al.artist_id = ?1
-                     ORDER BY al.year, al.title"
-                ).unwrap();
+                     ORDER BY al.year, al.title",
+                    )
+                    .unwrap();
                 let results: Vec<(String, String)> = stmt
                     .query_map(["artist-42"], |row| Ok((row.get(0)?, row.get(1)?)))
                     .unwrap()
@@ -160,7 +165,8 @@ fn bench_db_query_albums(c: &mut Criterion) {
                     .collect();
                 black_box(results.len());
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
         });
     });
 }
@@ -171,12 +177,14 @@ fn bench_db_query_fts(c: &mut Criterion) {
     c.bench_function("fts_search_100k", |b| {
         b.iter(|| {
             db.with_connection(|conn| {
-                let mut stmt = conn.prepare(
-                    "SELECT t.path FROM tracks_fts fts
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT t.path FROM tracks_fts fts
                      JOIN tracks t ON t.rowid = fts.rowid
                      WHERE tracks_fts MATCH ?1
-                     LIMIT 100"
-                ).unwrap();
+                     LIMIT 100",
+                    )
+                    .unwrap();
                 let results: Vec<String> = stmt
                     .query_map(["Track 5*"], |row| row.get(0))
                     .unwrap()
@@ -184,7 +192,8 @@ fn bench_db_query_fts(c: &mut Criterion) {
                     .collect();
                 black_box(results.len());
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
         });
     });
 }

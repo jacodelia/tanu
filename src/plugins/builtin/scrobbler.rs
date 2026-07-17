@@ -110,9 +110,12 @@ impl LastFmScrobbler {
             let api_key = _ctx.fetch("lastfm.api_key");
             let session_key = _ctx.fetch("lastfm.session_key");
 
-            if let (Some(_api_key), Some(_session_key), Some(ref artist), Some(ref track)) =
-                (api_key, session_key, &self.current_artist, &self.current_track)
-            {
+            if let (Some(_api_key), Some(_session_key), Some(ref artist), Some(ref track)) = (
+                api_key,
+                session_key,
+                &self.current_artist,
+                &self.current_track,
+            ) {
                 tracing::debug!(
                     artist = %artist,
                     track = %track,
@@ -175,11 +178,7 @@ impl Plugin for LastFmScrobbler {
                             if let (Some(ref artist), Some(ref track)) =
                                 (&self.current_artist, &self.current_track)
                             {
-                                self.queue_scrobble(
-                                    artist.clone(),
-                                    track.clone(),
-                                    String::new(),
-                                );
+                                self.queue_scrobble(artist.clone(), track.clone(), String::new());
                                 self.scrobbled = true;
                             }
                         }

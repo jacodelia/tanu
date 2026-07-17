@@ -45,9 +45,12 @@ fn render_midi_to_pcm(sf2: &Path, midi: &Path, gain: f32) -> anyhow::Result<File
     let status = Command::new("fluidsynth")
         .arg("-ni") // no midi-in, no interactive shell
         .arg("-q")
-        .arg("-g").arg(format!("{:.2}", gain.clamp(0.0, 10.0)))
-        .arg("-r").arg("44100")
-        .arg("-F").arg(&tmp) // fast-render to this WAV, then exit
+        .arg("-g")
+        .arg(format!("{:.2}", gain.clamp(0.0, 10.0)))
+        .arg("-r")
+        .arg("44100")
+        .arg("-F")
+        .arg(&tmp) // fast-render to this WAV, then exit
         .arg(sf2)
         .arg(midi)
         .stdin(Stdio::null())
@@ -79,7 +82,11 @@ fn parse_midi(path: &Path) -> Option<MidiInfo> {
         return None;
     }
     let division = u16::from_be_bytes([data[12], data[13]]);
-    let ppq = if division & 0x8000 != 0 { 480 } else { (division as u32).max(1) };
+    let ppq = if division & 0x8000 != 0 {
+        480
+    } else {
+        (division as u32).max(1)
+    };
 
     let mut tempo_us: u32 = 500_000;
     let mut first_tempo_seen = false;
@@ -90,7 +97,8 @@ fn parse_midi(path: &Path) -> Option<MidiInfo> {
         if &data[pos..pos + 4] != b"MTrk" {
             break;
         }
-        let len = u32::from_be_bytes([data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7]]) as usize;
+        let len = u32::from_be_bytes([data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7]])
+            as usize;
         let start = pos + 8;
         let end = (start + len).min(data.len());
         let mut p = start;
@@ -117,13 +125,17 @@ fn parse_midi(path: &Path) -> Option<MidiInfo> {
                     p = np + l as usize;
                 }
                 0xFF => {
-                    if p >= end { break; }
+                    if p >= end {
+                        break;
+                    }
                     let meta = data[p];
                     p += 1;
                     let (l, np) = read_vlq(&data, p, end);
                     p = np;
                     if meta == 0x51 && l == 3 && p + 3 <= end && !first_tempo_seen {
-                        tempo_us = ((data[p] as u32) << 16) | ((data[p + 1] as u32) << 8) | data[p + 2] as u32;
+                        tempo_us = ((data[p] as u32) << 16)
+                            | ((data[p + 1] as u32) << 8)
+                            | data[p + 2] as u32;
                         first_tempo_seen = true;
                     }
                     p += l as usize;
@@ -141,7 +153,11 @@ fn parse_midi(path: &Path) -> Option<MidiInfo> {
     }
 
     let duration_secs = max_ticks as f64 / ppq as f64 * (tempo_us as f64 / 1_000_000.0);
-    Some(MidiInfo { ppq, tempo_us, duration_secs })
+    Some(MidiInfo {
+        ppq,
+        tempo_us,
+        duration_secs,
+    })
 }
 
 /// Read a MIDI variable-length quantity at `p`; returns (value, next_pos).
@@ -195,7 +211,12 @@ fn find_soundfont() -> Option<PathBuf> {
         if let Ok(rd) = std::fs::read_dir(&dir) {
             for e in rd.flatten() {
                 let p = e.path();
-                if !p.extension().and_then(|x| x.to_str()).map(|x| x.eq_ignore_ascii_case("sf2")).unwrap_or(false) {
+                if !p
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .map(|x| x.eq_ignore_ascii_case("sf2"))
+                    .unwrap_or(false)
+                {
                     continue;
                 }
                 let score = gm_score(&p);
@@ -210,12 +231,22 @@ fn find_soundfont() -> Option<PathBuf> {
 
 /// Heuristic score for a SoundFont being a usable full-GM bank.
 fn gm_score(path: &Path) -> i32 {
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     let mut s = 0;
-    if name.contains("gm") || name.contains("general") { s += 10; }
-    if name.contains("fluidr3") || name.contains("timgm") || name.contains("generaluser") { s += 8; }
+    if name.contains("gm") || name.contains("general") {
+        s += 10;
+    }
+    if name.contains("fluidr3") || name.contains("timgm") || name.contains("generaluser") {
+        s += 8;
+    }
     // Drum-kit / effect fonts silence melodic channels — deprioritize hard.
-    if name.contains("lv2") || name.contains("drum") || name.contains("perc") { s -= 20; }
+    if name.contains("lv2") || name.contains("drum") || name.contains("perc") {
+        s -= 20;
+    }
     s
 }
 
@@ -275,7 +306,10 @@ impl AudioBackend for RodioBackend {
             let file = render_midi_to_pcm(&sf2, path, gain)?;
             let decoder = Decoder::new(BufReader::new(file))?;
             use rodio::Source;
-            let dur = decoder.total_duration().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+            let dur = decoder
+                .total_duration()
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
             (decoder, dur)
         } else {
             // Duration from metadata (fast: reads headers, no full decode).
@@ -364,7 +398,11 @@ impl AudioBackend for RodioBackend {
             let _ = sink.try_seek(std::time::Duration::from_secs_f64(clamped));
         }
         inner.elapsed_before_pause = clamped;
-        inner.started_at = if inner.paused { None } else { Some(Instant::now()) };
+        inner.started_at = if inner.paused {
+            None
+        } else {
+            Some(Instant::now())
+        };
     }
 
     fn set_volume(&self, volume: f32) {
@@ -378,7 +416,13 @@ impl AudioBackend for RodioBackend {
 
     fn position(&self) -> f64 {
         let inner = self.inner.lock().unwrap();
-        let cap = |t: f64| if inner.current_duration > 0.0 { t.min(inner.current_duration) } else { t };
+        let cap = |t: f64| {
+            if inner.current_duration > 0.0 {
+                t.min(inner.current_duration)
+            } else {
+                t
+            }
+        };
         if inner.playing && !inner.paused {
             if let Some(start) = inner.started_at {
                 return cap(inner.elapsed_before_pause + start.elapsed().as_secs_f64());
@@ -393,13 +437,7 @@ impl AudioBackend for RodioBackend {
 
     fn is_playing(&self) -> bool {
         let inner = self.inner.lock().unwrap();
-        inner.playing
-            && !inner.paused
-            && inner
-                .sink
-                .as_ref()
-                .map(|s| !s.empty())
-                .unwrap_or(false)
+        inner.playing && !inner.paused && inner.sink.as_ref().map(|s| !s.empty()).unwrap_or(false)
     }
 
     fn is_paused(&self) -> bool {
@@ -422,8 +460,28 @@ mod tests {
             0x00, 0xFF, 0x2F, 0x00, // end of track
         ];
         let mut data = vec![
-            b'M', b'T', b'h', b'd', 0, 0, 0, 6, 0, 0, 0, 1, 0, 96,
-            b'M', b'T', b'r', b'k', 0, 0, 0, track.len() as u8,
+            b'M',
+            b'T',
+            b'h',
+            b'd',
+            0,
+            0,
+            0,
+            6,
+            0,
+            0,
+            0,
+            1,
+            0,
+            96,
+            b'M',
+            b'T',
+            b'r',
+            b'k',
+            0,
+            0,
+            0,
+            track.len() as u8,
         ];
         data.extend_from_slice(track);
         let dir = std::env::temp_dir().join(format!("tanu-midi-{}.mid", std::process::id()));
@@ -431,7 +489,11 @@ mod tests {
         let info = parse_midi(&dir).unwrap();
         assert_eq!(info.ppq, 96);
         assert_eq!(info.tempo_us, 500_000);
-        assert!((info.duration_secs - 0.5).abs() < 1e-6, "got {}", info.duration_secs);
+        assert!(
+            (info.duration_secs - 0.5).abs() < 1e-6,
+            "got {}",
+            info.duration_secs
+        );
         let _ = std::fs::remove_file(&dir);
     }
 
@@ -440,6 +502,9 @@ mod tests {
         let gm = gm_score(Path::new("/x/FluidR3_GM.sf2"));
         let drum = gm_score(Path::new("/x/Black_Pearl_4_LV2.sf2"));
         assert!(gm > drum, "GM font ({gm}) must outrank drum kit ({drum})");
-        assert!(gm_score(Path::new("/x/default-GM.sf2")) > gm_score(Path::new("/x/Red_Zeppelin_4_LV2.sf2")));
+        assert!(
+            gm_score(Path::new("/x/default-GM.sf2"))
+                > gm_score(Path::new("/x/Red_Zeppelin_4_LV2.sf2"))
+        );
     }
 }

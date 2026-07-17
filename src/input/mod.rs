@@ -32,9 +32,13 @@ pub fn from_crossterm_key(key: &crossterm::event::KeyEvent, mode: UiMode) -> Key
     KeyEvent {
         code,
         modifiers: KeyModifiers {
-            ctrl: key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL),
+            ctrl: key
+                .modifiers
+                .contains(crossterm::event::KeyModifiers::CONTROL),
             alt: key.modifiers.contains(crossterm::event::KeyModifiers::ALT),
-            shift: key.modifiers.contains(crossterm::event::KeyModifiers::SHIFT),
+            shift: key
+                .modifiers
+                .contains(crossterm::event::KeyModifiers::SHIFT),
         },
         mode,
     }
@@ -120,12 +124,7 @@ impl InputHandler {
     }
 
     /// Translate a mouse event into a Tanu MouseAction.
-    pub fn translate_mouse(
-        &self,
-        button: MouseButton,
-        x: u16,
-        y: u16,
-    ) -> Event {
+    pub fn translate_mouse(&self, button: MouseButton, x: u16, y: u16) -> Event {
         Event::MouseAction(MouseAction::Press(button, x, y))
     }
 
@@ -177,22 +176,38 @@ fn action_to_event(action: &str) -> Option<Event> {
     match action {
         "scroll_down" => Some(Event::KeyPress(KeyEvent {
             code: KeyCode::Down,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         })),
         "scroll_up" => Some(Event::KeyPress(KeyEvent {
             code: KeyCode::Up,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         })),
         "scroll_top" => Some(Event::KeyPress(KeyEvent {
             code: KeyCode::Home,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         })),
         "scroll_bottom" => Some(Event::KeyPress(KeyEvent {
             code: KeyCode::End,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         })),
         "search" => Some(Event::ModeChanged(UiMode::Search)),
@@ -204,7 +219,11 @@ fn action_to_event(action: &str) -> Option<Event> {
         // Forward Enter to the focused widget (browser plays the file, etc.).
         "select" => Some(Event::KeyPress(KeyEvent {
             code: KeyCode::Enter,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         })),
         "next_view" => Some(Event::Command("next_view".to_string())),
@@ -224,7 +243,11 @@ mod tests {
     fn test_key_event() -> KeyEvent {
         KeyEvent {
             code: KeyCode::Char('j'),
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         }
     }
@@ -239,7 +262,11 @@ mod tests {
     fn test_key_to_string_ctrl() {
         let evt = KeyEvent {
             code: KeyCode::Char('c'),
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         };
         assert_eq!(key_to_string(&evt), "ctrl+c");
@@ -249,7 +276,11 @@ mod tests {
     fn test_key_to_string_special() {
         let evt = KeyEvent {
             code: KeyCode::Enter,
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: UiMode::Normal,
         };
         assert_eq!(key_to_string(&evt), "enter");

@@ -22,8 +22,8 @@ pub enum SlotSize {
 }
 
 impl SlotSize {
-    fn to_constraint(&self) -> Constraint {
-        match *self {
+    fn to_constraint(self) -> Constraint {
+        match self {
             SlotSize::Fixed(n) => Constraint::Length(n),
             // Fill weights split the *remaining* space proportionally, so a
             // lone main panel fills the screen and two panels share it by
@@ -60,7 +60,7 @@ pub enum LayoutDirection {
 }
 
 impl LayoutDirection {
-    fn to_ratatui(&self) -> Direction {
+    fn to_ratatui(self) -> Direction {
         match self {
             LayoutDirection::Vertical => Direction::Vertical,
             LayoutDirection::Horizontal => Direction::Horizontal,
@@ -135,7 +135,9 @@ impl LayoutManager {
 
     /// Get the current layout definition.
     fn current_def(&self) -> &LayoutDef {
-        self.layouts.get(&self.current).expect("current layout not found")
+        self.layouts
+            .get(&self.current)
+            .expect("current layout not found")
     }
 
     /// Get the effective size for a slot, accounting for overrides.
@@ -157,7 +159,8 @@ impl LayoutManager {
     /// Set the ratio for a percentage-sized slot.
     pub fn set_slot_ratio(&mut self, slot: Slot, ratio: f32) {
         let ratio = ratio.clamp(0.1, 0.9);
-        self.ratio_overrides.insert((self.current.clone(), slot), ratio);
+        self.ratio_overrides
+            .insert((self.current.clone(), slot), ratio);
     }
 
     /// Get the overrides map (for serialization).
@@ -225,7 +228,8 @@ impl LayoutManager {
         // Collect slot info before mutating
         let visible: Vec<Slot> = {
             let def = self.current_def();
-            def.slots.iter()
+            def.slots
+                .iter()
                 .filter(|s| s.visible)
                 .map(|s| s.slot)
                 .collect()
@@ -285,18 +289,20 @@ impl LayoutManager {
             return vec![];
         }
 
-        let constraints: Vec<Constraint> = visible.iter().map(|s| {
-            match s.size {
+        let constraints: Vec<Constraint> = visible
+            .iter()
+            .map(|s| match s.size {
                 SlotSize::Percentage(_) => {
-                    if let Some(&ratio) = self.ratio_overrides.get(&(self.current.clone(), s.slot)) {
+                    if let Some(&ratio) = self.ratio_overrides.get(&(self.current.clone(), s.slot))
+                    {
                         SlotSize::Percentage(ratio).to_constraint()
                     } else {
                         s.size.to_constraint()
                     }
                 }
                 _ => s.size.to_constraint(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let regions = Layout::default()
             .direction(def.direction.to_ratatui())
@@ -330,8 +336,10 @@ impl LayoutManager {
     /// Try to find a divider at screen position (x, y). Returns divider index if found.
     pub fn divider_at(&self, x: u16, y: u16, area: Rect) -> Option<usize> {
         for (idx, rect) in self.divider_regions(area) {
-            if x >= rect.x && x < rect.x.saturating_add(rect.width)
-                && y >= rect.y && y < rect.y.saturating_add(rect.height)
+            if x >= rect.x
+                && x < rect.x.saturating_add(rect.width)
+                && y >= rect.y
+                && y < rect.y.saturating_add(rect.height)
             {
                 return Some(idx);
             }
@@ -354,25 +362,29 @@ impl LayoutManager {
             return vec![];
         }
 
-        let constraints: Vec<Constraint> = visible.iter().map(|s| {
-            match s.size {
+        let constraints: Vec<Constraint> = visible
+            .iter()
+            .map(|s| match s.size {
                 SlotSize::Percentage(_) => {
-                    if let Some(&ratio) = self.ratio_overrides.get(&(self.current.clone(), s.slot)) {
+                    if let Some(&ratio) = self.ratio_overrides.get(&(self.current.clone(), s.slot))
+                    {
                         SlotSize::Percentage(ratio).to_constraint()
                     } else {
                         s.size.to_constraint()
                     }
                 }
                 _ => s.size.to_constraint(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let regions = Layout::default()
             .direction(def.direction.to_ratatui())
             .constraints(constraints)
             .split(area);
 
-        visible.iter().enumerate()
+        visible
+            .iter()
+            .enumerate()
             .filter_map(|(i, sc)| {
                 if i < regions.len() {
                     Some((sc.slot, regions[i]))
@@ -392,14 +404,16 @@ impl LayoutManager {
 
     /// Save current layout overrides to a TOML file.
     pub fn save_overrides(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        let map: HashMap<String, HashMap<String, f32>> = self.ratio_overrides.iter()
-            .fold(HashMap::new(), |mut acc, ((layout, slot), ratio)| {
-                let slot_key = format!("{:?}", slot).to_lowercase();
-                acc.entry(layout.clone())
-                    .or_default()
-                    .insert(slot_key, *ratio);
-                acc
-            });
+        let map: HashMap<String, HashMap<String, f32>> =
+            self.ratio_overrides
+                .iter()
+                .fold(HashMap::new(), |mut acc, ((layout, slot), ratio)| {
+                    let slot_key = format!("{:?}", slot).to_lowercase();
+                    acc.entry(layout.clone())
+                        .or_default()
+                        .insert(slot_key, *ratio);
+                    acc
+                });
 
         let content = toml::to_string_pretty(&map)?;
         std::fs::write(path, content)?;
@@ -459,7 +473,7 @@ pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
     let deck_h = 7u16; // border + 3 key rows + progress + volume
     let scope_h = 7u16;
     let eq_h = 7u16; // same size as the scope
-    // Right column (album art + scope) only when there's room.
+                     // Right column (album art + scope) only when there's room.
     let show_right = area.width >= 70 && area.height >= 16;
     // Equalizer between art and scope only on taller screens.
     let show_eq = area.height >= 26;
@@ -520,7 +534,12 @@ pub fn app_regions(area: Rect) -> Vec<(Slot, Rect)> {
 
 /// All built-in layout definitions.
 pub fn all_builtin_layouts() -> Vec<LayoutDef> {
-    vec![default_layout(), compact_layout(), wide_layout(), focus_layout()]
+    vec![
+        default_layout(),
+        compact_layout(),
+        wide_layout(),
+        focus_layout(),
+    ]
 }
 
 fn default_layout() -> LayoutDef {
@@ -528,14 +547,42 @@ fn default_layout() -> LayoutDef {
         name: "default".into(),
         direction: LayoutDirection::Vertical,
         slots: vec![
-            SlotConfig { slot: Slot::Tabs, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::SearchBar, size: SlotSize::Fixed(1), visible: true },
+            SlotConfig {
+                slot: Slot::Tabs,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::SearchBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
             // Single main panel; view tabs swap its content.
-            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(1.0), visible: true },
-            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.0), visible: false },
-            SlotConfig { slot: Slot::ProgressBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::StatusBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::CommandBar, size: SlotSize::Fixed(1), visible: true },
+            SlotConfig {
+                slot: Slot::MainLeft,
+                size: SlotSize::Percentage(1.0),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::MainRight,
+                size: SlotSize::Percentage(0.0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::ProgressBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::StatusBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::CommandBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
         ],
     }
 }
@@ -545,13 +592,41 @@ fn compact_layout() -> LayoutDef {
         name: "compact".into(),
         direction: LayoutDirection::Vertical,
         slots: vec![
-            SlotConfig { slot: Slot::Tabs, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::SearchBar, size: SlotSize::Fixed(0), visible: false },
-            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(1.0), visible: true },
-            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.0), visible: false },
-            SlotConfig { slot: Slot::ProgressBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::StatusBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::CommandBar, size: SlotSize::Fixed(0), visible: false },
+            SlotConfig {
+                slot: Slot::Tabs,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::SearchBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::MainLeft,
+                size: SlotSize::Percentage(1.0),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::MainRight,
+                size: SlotSize::Percentage(0.0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::ProgressBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::StatusBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::CommandBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
         ],
     }
 }
@@ -561,13 +636,41 @@ fn wide_layout() -> LayoutDef {
         name: "wide".into(),
         direction: LayoutDirection::Vertical,
         slots: vec![
-            SlotConfig { slot: Slot::Tabs, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::SearchBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(0.35), visible: true },
-            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.65), visible: true },
-            SlotConfig { slot: Slot::ProgressBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::StatusBar, size: SlotSize::Fixed(1), visible: true },
-            SlotConfig { slot: Slot::CommandBar, size: SlotSize::Fixed(1), visible: true },
+            SlotConfig {
+                slot: Slot::Tabs,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::SearchBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::MainLeft,
+                size: SlotSize::Percentage(0.35),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::MainRight,
+                size: SlotSize::Percentage(0.65),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::ProgressBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::StatusBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::CommandBar,
+                size: SlotSize::Fixed(1),
+                visible: true,
+            },
         ],
     }
 }
@@ -577,13 +680,41 @@ fn focus_layout() -> LayoutDef {
         name: "focus".into(),
         direction: LayoutDirection::Vertical,
         slots: vec![
-            SlotConfig { slot: Slot::Tabs, size: SlotSize::Fixed(0), visible: false },
-            SlotConfig { slot: Slot::SearchBar, size: SlotSize::Fixed(0), visible: false },
-            SlotConfig { slot: Slot::MainLeft, size: SlotSize::Percentage(1.0), visible: true },
-            SlotConfig { slot: Slot::MainRight, size: SlotSize::Percentage(0.0), visible: false },
-            SlotConfig { slot: Slot::ProgressBar, size: SlotSize::Fixed(0), visible: false },
-            SlotConfig { slot: Slot::StatusBar, size: SlotSize::Fixed(0), visible: false },
-            SlotConfig { slot: Slot::CommandBar, size: SlotSize::Fixed(0), visible: false },
+            SlotConfig {
+                slot: Slot::Tabs,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::SearchBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::MainLeft,
+                size: SlotSize::Percentage(1.0),
+                visible: true,
+            },
+            SlotConfig {
+                slot: Slot::MainRight,
+                size: SlotSize::Percentage(0.0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::ProgressBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::StatusBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
+            SlotConfig {
+                slot: Slot::CommandBar,
+                size: SlotSize::Fixed(0),
+                visible: false,
+            },
         ],
     }
 }
@@ -638,7 +769,12 @@ mod tests {
     #[test]
     fn test_compute_regions() {
         let mgr = LayoutManager::new();
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let regions = mgr.compute_regions(area);
         // menu, browser, album art, scope, seek, deck, status, command = 8
         assert_eq!(regions.len(), 8);
@@ -648,7 +784,12 @@ mod tests {
     fn test_compact_hides_slots() {
         let mut mgr = LayoutManager::new();
         mgr.switch("compact").unwrap();
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let regions = mgr.compute_regions(area);
         // compact: tabs, mainleft, progressbar, statusbar = 4 visible
         assert_eq!(regions.len(), 4);
@@ -658,10 +799,20 @@ mod tests {
     fn test_responsive_drops_slots_on_small_screen() {
         let mgr = LayoutManager::new();
         // Tall: menu, browser, deck, status, command + album art, eq, scope, seek = 9.
-        let big = mgr.compute_regions(Rect { x: 0, y: 0, width: 80, height: 40 });
+        let big = mgr.compute_regions(Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 40,
+        });
         assert_eq!(big.len(), 9);
         // Narrow screen (5" style): right column (album art + scope) dropped.
-        let small = mgr.compute_regions(Rect { x: 0, y: 0, width: 60, height: 16 });
+        let small = mgr.compute_regions(Rect {
+            x: 0,
+            y: 0,
+            width: 60,
+            height: 16,
+        });
         let slots: Vec<Slot> = small.iter().map(|(s, _)| *s).collect();
         assert!(!slots.contains(&Slot::SearchBar));
         assert!(!slots.contains(&Slot::MainRight));
@@ -677,7 +828,12 @@ mod tests {
         // splits MainLeft/MainRight by percentage.
         let mut mgr = LayoutManager::new();
         mgr.switch("wide").unwrap();
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let divs = mgr.divider_regions(area);
         assert!(!divs.is_empty());
         let has_main_divider = divs.iter().any(|(idx, _)| *idx == 2);

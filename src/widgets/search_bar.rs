@@ -22,6 +22,12 @@ pub struct SearchBar {
     result_count: usize,
 }
 
+impl Default for SearchBar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SearchBar {
     pub fn new() -> Self {
         Self {
@@ -108,7 +114,9 @@ impl Widget for SearchBar {
                         if !self.query.is_empty() {
                             self.query.pop();
                             self.dirty = true;
-                            return EventResult::Event(Event::SearchQueryChanged(self.query.clone()));
+                            return EventResult::Event(Event::SearchQueryChanged(
+                                self.query.clone(),
+                            ));
                         }
                     }
                     KeyCode::Char(c) => {

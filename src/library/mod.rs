@@ -12,8 +12,8 @@ use walkdir::WalkDir;
 
 use crate::database::queries;
 use crate::database::Database;
-use crate::events::Event;
 use crate::events::bus::EventSender;
+use crate::events::Event;
 
 pub mod cache;
 pub mod indexer;
@@ -107,36 +107,34 @@ impl Library {
                 let needs_index = !self.cache.is_fresh(path, mtime);
 
                 if needs_index {
-                    self.db.with_connection(|conn| {
-                        match index_file(path) {
-                            Ok(Some(track)) => {
-                                let existing_id: Option<String> = conn
-                                    .query_row(
-                                        "SELECT id FROM tracks WHERE path = ?1",
-                                        rusqlite::params![track.path],
-                                        |row| row.get(0),
-                                    )
-                                    .ok();
+                    self.db.with_connection(|conn| match index_file(path) {
+                        Ok(Some(track)) => {
+                            let existing_id: Option<String> = conn
+                                .query_row(
+                                    "SELECT id FROM tracks WHERE path = ?1",
+                                    rusqlite::params![track.path],
+                                    |row| row.get(0),
+                                )
+                                .ok();
 
-                                if existing_id.is_some() {
-                                    result.tracks_updated += 1;
-                                } else {
-                                    result.tracks_added += 1;
-                                }
+                            if existing_id.is_some() {
+                                result.tracks_updated += 1;
+                            } else {
+                                result.tracks_added += 1;
+                            }
 
-                                queries::upsert_track(conn, &track)?;
-                                self.cache.invalidate(path);
-                                Ok(())
-                            }
-                            Ok(None) => Ok(()),
-                            Err(e) => {
-                                tracing::warn!(
-                                    path = %path.display(),
-                                    error = %e,
-                                    "Failed to index file"
-                                );
-                                Ok(())
-                            }
+                            queries::upsert_track(conn, &track)?;
+                            self.cache.invalidate(path);
+                            Ok(())
+                        }
+                        Ok(None) => Ok(()),
+                        Err(e) => {
+                            tracing::warn!(
+                                path = %path.display(),
+                                error = %e,
+                                "Failed to index file"
+                            );
+                            Ok(())
                         }
                     })?;
                 }
@@ -153,8 +151,7 @@ impl Library {
 
         // Remove stale tracks that no longer exist on disk
         self.db.with_connection(|conn| {
-            result.tracks_removed =
-                queries::remove_stale_tracks(conn, &found_paths)?;
+            result.tracks_removed = queries::remove_stale_tracks(conn, &found_paths)?;
             Ok(())
         })?;
 
@@ -171,19 +168,15 @@ impl Library {
 
     /// Start a filesystem watcher on all music directories.
     /// Runs on a dedicated OS thread, sending events via the event bus.
-    pub fn start_watcher(
-        music_dirs: Vec<PathBuf>,
-        event_tx: EventSender,
-    ) -> anyhow::Result<()> {
+    pub fn start_watcher(music_dirs: Vec<PathBuf>, event_tx: EventSender) -> anyhow::Result<()> {
         let (watcher_tx, watcher_rx) = mpsc::channel();
 
-        let mut watcher = notify::recommended_watcher(
-            move |res: Result<notify::Event, notify::Error>| {
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
                 if let Ok(event) = res {
                     let _ = watcher_tx.send(event);
                 }
-            },
-        )?;
+            })?;
 
         for dir in &music_dirs {
             if dir.exists() {
@@ -227,8 +220,7 @@ impl Library {
     /// Returns the total number of tracks in the library.
     pub fn track_count(&self) -> anyhow::Result<usize> {
         self.db.with_connection(|conn| {
-            let count: i64 =
-                conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))?;
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))?;
             Ok(count as usize)
         })
     }

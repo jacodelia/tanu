@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use crate::core::id::WidgetId;
 use crate::events::{Event, MouseAction};
 use crate::theme::ThemeRegistry;
-use crate::widgets::Widget;
 use crate::widgets::context_menu::{ContextMenu, MenuItem};
 use crate::widgets::dir_picker::DirPicker;
 use crate::widgets::popup::Popup;
+use crate::widgets::Widget;
 
 use self::layout::LayoutManager;
 
@@ -105,7 +105,11 @@ impl Screen {
     }
 
     /// Replace the widget in a slot, returning the old widget.
-    pub fn replace_widget(&mut self, widget: Box<dyn crate::widgets::Widget>, slot: Slot) -> Option<Box<dyn crate::widgets::Widget>> {
+    pub fn replace_widget(
+        &mut self,
+        widget: Box<dyn crate::widgets::Widget>,
+        slot: Slot,
+    ) -> Option<Box<dyn crate::widgets::Widget>> {
         let id = widget.id();
         let old_id = self.slot_map.insert(slot, id);
         self.slot_order.retain(|&x| x != id);
@@ -143,7 +147,9 @@ impl Screen {
     }
 
     pub fn widget_at_mut(&mut self, slot: Slot) -> Option<&mut Box<dyn crate::widgets::Widget>> {
-        self.slot_map.get(&slot).and_then(|id| self.widgets.get_mut(id))
+        self.slot_map
+            .get(&slot)
+            .and_then(|id| self.widgets.get_mut(id))
     }
 
     /// Set the focused widget.
@@ -222,7 +228,13 @@ impl Screen {
     }
 
     /// Open a file picker for `exts`, emitting `<prefix>:<file>` on confirm.
-    pub fn show_file_picker(&mut self, start: std::path::PathBuf, exts: Vec<String>, prefix: &str, title: &str) {
+    pub fn show_file_picker(
+        &mut self,
+        start: std::path::PathBuf,
+        exts: Vec<String>,
+        prefix: &str,
+        title: &str,
+    ) {
         self.dir_picker.show_files(start, exts, prefix, title);
     }
 
@@ -239,7 +251,12 @@ impl Screen {
     }
 
     /// Show the large About popup with scaled ASCII art.
-    pub fn show_popup_about(&mut self, title: impl Into<String>, message: impl Into<String>, art: &'static str) {
+    pub fn show_popup_about(
+        &mut self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        art: &'static str,
+    ) {
         self.popup.show_about(title, message, art);
     }
 
@@ -260,7 +277,12 @@ impl Screen {
         self.popup.show_error(title, message);
     }
 
-    pub fn show_popup_confirm(&mut self, title: impl Into<String>, message: impl Into<String>, on_confirm: String) {
+    pub fn show_popup_confirm(
+        &mut self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        on_confirm: String,
+    ) {
         self.popup.show_confirm(title, message, on_confirm);
     }
 
@@ -282,8 +304,10 @@ impl Screen {
         for &id in self.slot_order.iter().rev() {
             if let Some(widget) = self.widgets.get(&id) {
                 let rect = widget.rect();
-                if x >= rect.x && x < rect.x.saturating_add(rect.width)
-                    && y >= rect.y && y < rect.y.saturating_add(rect.height)
+                if x >= rect.x
+                    && x < rect.x.saturating_add(rect.width)
+                    && y >= rect.y
+                    && y < rect.y.saturating_add(rect.height)
                 {
                     let local_x = x.saturating_sub(rect.x);
                     let local_y = y.saturating_sub(rect.y);
@@ -358,7 +382,12 @@ impl Screen {
         // Handle divider drag: Press on a divider starts drag
         match action {
             MouseAction::Press(_, x, y) => {
-                let area = Rect { x: 0, y: 0, width: u16::MAX, height: u16::MAX };
+                let area = Rect {
+                    x: 0,
+                    y: 0,
+                    width: u16::MAX,
+                    height: u16::MAX,
+                };
                 if let Some(idx) = self.layout.divider_at(*x, *y, area) {
                     if self.layout.start_drag(idx, *x, *y) {
                         return produced;
@@ -367,16 +396,18 @@ impl Screen {
             }
             MouseAction::Drag(_, x, y) | MouseAction::Hold(_, x, y) => {
                 if self.layout.is_dragging() {
-                    let total = if self.layout.current_name() == "default" { 40 } else { 24 };
+                    let total = if self.layout.current_name() == "default" {
+                        40
+                    } else {
+                        24
+                    };
                     self.layout.update_drag(*x, *y, total);
                     return produced;
                 }
             }
-            MouseAction::Release(..) => {
-                if self.layout.is_dragging() {
-                    self.layout.end_drag();
-                    return produced;
-                }
+            MouseAction::Release(..) if self.layout.is_dragging() => {
+                self.layout.end_drag();
+                return produced;
             }
             _ => {}
         }
@@ -419,21 +450,43 @@ impl Screen {
     }
 
     fn context_menu_items_for(&self, widget_id: WidgetId) -> Vec<MenuItem> {
-        let slot = self.slot_map.iter().find(|(_, &id)| id == widget_id).map(|(s, _)| *s);
+        let slot = self
+            .slot_map
+            .iter()
+            .find(|(_, &id)| id == widget_id)
+            .map(|(s, _)| *s);
 
         let mut items = Vec::new();
         match slot {
             Some(Slot::MainLeft) => {
-                items.push(MenuItem { label: "Play".into(), command: "play_selected".into() });
-                items.push(MenuItem { label: "Add to Queue".into(), command: "queue_selected".into() });
-                items.push(MenuItem { label: "Add to Playlist".into(), command: "add_to_playlist".into() });
+                items.push(MenuItem {
+                    label: "Play".into(),
+                    command: "play_selected".into(),
+                });
+                items.push(MenuItem {
+                    label: "Add to Queue".into(),
+                    command: "queue_selected".into(),
+                });
+                items.push(MenuItem {
+                    label: "Add to Playlist".into(),
+                    command: "add_to_playlist".into(),
+                });
             }
             Some(Slot::MainRight) => {
-                items.push(MenuItem { label: "Play".into(), command: "play_selected".into() });
-                items.push(MenuItem { label: "Remove from Playlist".into(), command: "remove_selected".into() });
+                items.push(MenuItem {
+                    label: "Play".into(),
+                    command: "play_selected".into(),
+                });
+                items.push(MenuItem {
+                    label: "Remove from Playlist".into(),
+                    command: "remove_selected".into(),
+                });
             }
             _ => {
-                items.push(MenuItem { label: "Refresh".into(), command: "refresh".into() });
+                items.push(MenuItem {
+                    label: "Refresh".into(),
+                    command: "refresh".into(),
+                });
             }
         }
 
@@ -473,7 +526,12 @@ impl Screen {
                 frame.render_widget(p, div_rect);
             } else if div_rect.width == 1 {
                 for row in div_rect.y..div_rect.y + div_rect.height {
-                    let cell = Rect { x: div_rect.x, y: row, width: 1, height: 1 };
+                    let cell = Rect {
+                        x: div_rect.x,
+                        y: row,
+                        width: 1,
+                        height: 1,
+                    };
                     if cell.intersects(area) {
                         let p = Paragraph::new("│").style(div_style);
                         frame.render_widget(p, cell);
@@ -527,19 +585,16 @@ impl Screen {
 pub mod layout;
 
 fn apply_event_result(result: crate::widgets::EventResult, produced: &mut Vec<Event>) {
-    match result {
-        crate::widgets::EventResult::Event(e) => {
-            produced.push(e);
-        }
-        _ => {}
+    if let crate::widgets::EventResult::Event(e) = result {
+        produced.push(e);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::layout::Rect;
     use crate::widgets::status_bar::StatusBar;
+    use ratatui::layout::Rect;
 
     #[test]
     fn test_screen_creation() {
@@ -575,7 +630,12 @@ mod tests {
 
         // Manually set a rect for hit-testing
         if let Some(widget) = screen.widget_at_mut(Slot::StatusBar) {
-            widget.set_rect(Rect { x: 0, y: 20, width: 80, height: 1 });
+            widget.set_rect(Rect {
+                x: 0,
+                y: 20,
+                width: 80,
+                height: 1,
+            });
         }
 
         let result = screen.widget_at_screen_pos(5, 20);
@@ -593,7 +653,12 @@ mod tests {
         screen.add_widget(Box::new(status), Slot::StatusBar);
 
         if let Some(widget) = screen.widget_at_mut(Slot::StatusBar) {
-            widget.set_rect(Rect { x: 0, y: 20, width: 80, height: 1 });
+            widget.set_rect(Rect {
+                x: 0,
+                y: 20,
+                width: 80,
+                height: 1,
+            });
         }
 
         let result = screen.widget_at_screen_pos(5, 5);

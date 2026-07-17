@@ -29,7 +29,7 @@ impl PlaylistManager {
         self.db.with_connection(|conn| {
             conn.execute(
                 "INSERT INTO playlists (id, name) VALUES (?1, ?2)",
-                &[&id_str, name],
+                [&id_str, name],
             )?;
             Ok(())
         })?;
@@ -39,7 +39,7 @@ impl PlaylistManager {
     pub fn delete(&self, playlist_id: PlaylistId) -> anyhow::Result<()> {
         let id_str = format!("{:?}", playlist_id);
         self.db.with_connection(|conn| {
-            conn.execute("DELETE FROM playlists WHERE id = ?1", &[&id_str])?;
+            conn.execute("DELETE FROM playlists WHERE id = ?1", [&id_str])?;
             Ok(())
         })
     }
@@ -50,7 +50,7 @@ impl PlaylistManager {
         self.db.with_connection(|conn| {
             let pos: i64 = conn.query_row(
                 "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_tracks WHERE playlist_id = ?1",
-                &[&pid_str],
+                [&pid_str],
                 |row| row.get(0),
             )?;
             conn.execute(
@@ -59,7 +59,7 @@ impl PlaylistManager {
             )?;
             conn.execute(
                 "UPDATE playlists SET track_count = (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?1), updated_at = datetime('now') WHERE id = ?1",
-                &[&pid_str],
+                [&pid_str],
             )?;
             Ok(())
         })
@@ -75,13 +75,18 @@ impl PlaylistManager {
             )?;
             conn.execute(
                 "UPDATE playlists SET track_count = (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?1), updated_at = datetime('now') WHERE id = ?1",
-                &[&pid_str],
+                [&pid_str],
             )?;
             Ok(())
         })
     }
 
-    pub fn reorder(&self, playlist_id: PlaylistId, track_id: TrackId, new_position: u32) -> anyhow::Result<()> {
+    pub fn reorder(
+        &self,
+        playlist_id: PlaylistId,
+        track_id: TrackId,
+        new_position: u32,
+    ) -> anyhow::Result<()> {
         let pid_str = format!("{:?}", playlist_id);
         let tid_str = format!("{:?}", track_id);
         self.db.with_connection(|conn| {
@@ -122,13 +127,15 @@ mod tests {
         let tid_str = format!("{:?}", tid);
 
         // Insert track first to satisfy FK constraint
-        pm.db.with_connection(|conn| {
-            conn.execute(
-                "INSERT INTO tracks (id, path, title) VALUES (?1, ?2, ?3)",
-                &[&tid_str, "/fake/path.mp3", "Test Track"],
-            )?;
-            Ok(())
-        }).unwrap();
+        pm.db
+            .with_connection(|conn| {
+                conn.execute(
+                    "INSERT INTO tracks (id, path, title) VALUES (?1, ?2, ?3)",
+                    [&tid_str, "/fake/path.mp3", "Test Track"],
+                )?;
+                Ok(())
+            })
+            .unwrap();
 
         pm.add_track(pid, tid).unwrap();
         pm.remove_track(pid, tid).unwrap();

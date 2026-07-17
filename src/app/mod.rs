@@ -8,22 +8,22 @@ use std::time::Duration;
 
 use crate::audio::backend::RodioBackend;
 use crate::commands::CommandRegistry;
-use crate::plugins::PluginManager;
-use crate::core::traits::Component;
 use crate::core::traits::Command;
+use crate::core::traits::Component;
 use crate::database::Database;
 use crate::events::bus::{self, EventRouter, EventSender};
 use crate::events::Event;
 use crate::input::InputHandler;
 use crate::library::Library;
 use crate::player::{Player, PlayerCommand};
+use crate::plugins::PluginManager;
 use crate::ui::{Screen, Slot};
-use crate::widgets::Widget;
 use crate::widgets::browser_view::BrowserView;
 use crate::widgets::command_bar::CommandBar;
 use crate::widgets::library_view::LibraryView;
 use crate::widgets::progress_bar::ProgressBar;
 use crate::widgets::status_bar::StatusBar;
+use crate::widgets::Widget;
 
 use notify::{EventKind, RecursiveMode, Watcher};
 
@@ -58,11 +58,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        screen: Screen,
-        input_handler: InputHandler,
-        commands: CommandRegistry,
-    ) -> Self {
+    pub fn new(screen: Screen, input_handler: InputHandler, commands: CommandRegistry) -> Self {
         let mut router = EventRouter::new();
         let event_tx = router.sender();
         // Feed router events (e.g. PlayerStateChanged from the player thread)
@@ -189,12 +185,17 @@ impl App {
         let mut cfg = crate::config::Config::load_or_default(&cfg_path);
         match key {
             "theme" => {
-                self.screen.theme_mut().switch(value).map_err(|e| e.to_string())?;
+                self.screen
+                    .theme_mut()
+                    .switch(value)
+                    .map_err(|e| e.to_string())?;
                 self.screen.mark_dirty();
                 cfg.ui.theme = value.to_string();
             }
             "volume" | "vol" => {
-                let v: f32 = value.parse().map_err(|_| "volume must be 0-100".to_string())?;
+                let v: f32 = value
+                    .parse()
+                    .map_err(|_| "volume must be 0-100".to_string())?;
                 let clamped = (v / 100.0).clamp(0.0, 1.0);
                 let _ = self.event_tx.send(Event::SetVolume(clamped));
                 cfg.audio.default_volume = clamped;
@@ -208,7 +209,9 @@ impl App {
                 cfg.library.music_dirs = vec![pb];
             }
             "max_fps" => {
-                let fps: u32 = value.parse().map_err(|_| "max_fps must be a number".to_string())?;
+                let fps: u32 = value
+                    .parse()
+                    .map_err(|_| "max_fps must be a number".to_string())?;
                 cfg.ui.max_fps = fps.clamp(10, 240);
             }
             other => return Err(format!("unknown config key: {}", other)),
@@ -217,7 +220,8 @@ impl App {
             let _ = std::fs::create_dir_all(parent);
         }
         cfg.save(&cfg_path).map_err(|e| e.to_string())?;
-        self.screen.show_popup_info("Config", format!("{} = {} (saved)", key, value));
+        self.screen
+            .show_popup_info("Config", format!("{} = {} (saved)", key, value));
         Ok(())
     }
 
@@ -296,7 +300,10 @@ impl App {
                 // Play a specific file: replace the queue with it and play.
                 if let Event::PlayPath(path) = &event {
                     let p = PathBuf::from(path);
-                    if cmd_tx_clone.send(PlayerCommand::SetQueue(vec![p], 0)).is_err() {
+                    if cmd_tx_clone
+                        .send(PlayerCommand::SetQueue(vec![p], 0))
+                        .is_err()
+                    {
                         break;
                     }
                     continue;
@@ -304,7 +311,10 @@ impl App {
                 // Play a directory's media files, starting at `index`.
                 if let Event::PlayQueue(paths, index) = &event {
                     let ps: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
-                    if cmd_tx_clone.send(PlayerCommand::SetQueue(ps, *index)).is_err() {
+                    if cmd_tx_clone
+                        .send(PlayerCommand::SetQueue(ps, *index))
+                        .is_err()
+                    {
                         break;
                     }
                     continue;
@@ -509,20 +519,15 @@ impl App {
 
             tracing::info!(path = %bindings_path.display(), "Watching bindings file");
 
-            loop {
-                match rx.recv() {
-                    Ok(event) => {
-                        let changed = event.paths.iter().any(|p| p == &bindings_path);
-                        if changed {
-                            match event.kind {
-                                EventKind::Modify(_) | EventKind::Create(_) => {
-                                    let _ = event_tx.send(Event::BindingsReloaded);
-                                }
-                                _ => {}
-                            }
+            while let Ok(event) = rx.recv() {
+                let changed = event.paths.iter().any(|p| p == &bindings_path);
+                if changed {
+                    match event.kind {
+                        EventKind::Modify(_) | EventKind::Create(_) => {
+                            let _ = event_tx.send(Event::BindingsReloaded);
                         }
+                        _ => {}
                     }
-                    Err(_) => break,
                 }
             }
         });
@@ -537,21 +542,27 @@ impl App {
     }
 
     /// Register a plugin with the plugin manager.
-    pub fn register_plugin(&mut self, plugin: Box<dyn crate::core::traits::Plugin>) -> anyhow::Result<()> {
+    pub fn register_plugin(
+        &mut self,
+        plugin: Box<dyn crate::core::traits::Plugin>,
+    ) -> anyhow::Result<()> {
         self.plugins.register(plugin)
     }
 
     /// Register all built-in plugins.
     pub fn register_builtin_plugins(&mut self) {
-        use crate::plugins::builtin::scrobbler::LastFmScrobbler;
         use crate::plugins::builtin::discord::DiscordPresence;
         use crate::plugins::builtin::lyrics::LyricsPlugin;
+        use crate::plugins::builtin::scrobbler::LastFmScrobbler;
 
-        self.plugins.register(Box::new(LastFmScrobbler::new()))
+        self.plugins
+            .register(Box::new(LastFmScrobbler::new()))
             .unwrap_or_else(|e| tracing::warn!("Failed to register scrobbler: {}", e));
-        self.plugins.register(Box::new(DiscordPresence::new()))
+        self.plugins
+            .register(Box::new(DiscordPresence::new()))
             .unwrap_or_else(|e| tracing::warn!("Failed to register discord: {}", e));
-        self.plugins.register(Box::new(LyricsPlugin::new()))
+        self.plugins
+            .register(Box::new(LyricsPlugin::new()))
             .unwrap_or_else(|e| tracing::warn!("Failed to register lyrics: {}", e));
 
         tracing::info!("Built-in plugins registered");
@@ -588,17 +599,13 @@ impl App {
 
             tracing::info!(dir = %themes_dir.display(), "Watching themes directory");
 
-            loop {
-                match rx.recv() {
-                    Ok(event) => {
-                        let has_toml = event.paths.iter().any(|p| {
-                            p.extension().map(|e| e == "toml").unwrap_or(false)
-                        });
-                        if has_toml && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                            let _ = event_tx.send(Event::ConfigReloaded);
-                        }
-                    }
-                    Err(_) => break,
+            while let Ok(event) = rx.recv() {
+                let has_toml = event
+                    .paths
+                    .iter()
+                    .any(|p| p.extension().map(|e| e == "toml").unwrap_or(false));
+                if has_toml && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                    let _ = event_tx.send(Event::ConfigReloaded);
                 }
             }
         });
@@ -624,8 +631,8 @@ impl App {
             let elapsed = now.duration_since(last_render);
 
             // Render when: event arrived (responsive), or dirty + frame-cap-ok
-            let should_render = has_event
-                || (self.screen.needs_render() && elapsed >= min_frame_time);
+            let should_render =
+                has_event || (self.screen.needs_render() && elapsed >= min_frame_time);
 
             if should_render {
                 terminal.draw(|frame| {
@@ -687,8 +694,13 @@ impl App {
         match event {
             crossterm::event::Event::Key(key) => {
                 // Ctrl+C / Ctrl+Q always quit, regardless of mode.
-                if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
-                    && matches!(key.code, crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('q'))
+                if key
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::CONTROL)
+                    && matches!(
+                        key.code,
+                        crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('q')
+                    )
                 {
                     self.should_quit = true;
                     return;
@@ -711,8 +723,7 @@ impl App {
                         self.dispatch_event(Event::KeyPress(tanu_key));
                     }
                     _ => {
-                        let translated =
-                            self.input_handler.translate_key(tanu_key.clone());
+                        let translated = self.input_handler.translate_key(tanu_key.clone());
                         if let Some(event) = translated {
                             self.dispatch_event(event);
                         } else {
@@ -727,12 +738,16 @@ impl App {
                 // Route through MouseHandler so double-click / right-click are
                 // detected (raw crossterm only gives Down/Up/Drag/Scroll).
                 let action = match mouse.kind {
-                    MouseEventKind::Down(btn) => {
-                        Some(self.mouse.on_press(crate::input::convert_mouse_button(btn), x, y))
-                    }
-                    MouseEventKind::Up(btn) => {
-                        Some(self.mouse.on_release(crate::input::convert_mouse_button(btn), x, y))
-                    }
+                    MouseEventKind::Down(btn) => Some(self.mouse.on_press(
+                        crate::input::convert_mouse_button(btn),
+                        x,
+                        y,
+                    )),
+                    MouseEventKind::Up(btn) => Some(self.mouse.on_release(
+                        crate::input::convert_mouse_button(btn),
+                        x,
+                        y,
+                    )),
                     MouseEventKind::Drag(_) => Some(self.mouse.on_move(x, y)),
                     MouseEventKind::Moved => Some(self.mouse.on_move(x, y)),
                     MouseEventKind::ScrollUp => Some(self.mouse.on_scroll_up(x, y)),
@@ -857,17 +872,17 @@ impl App {
         let args: Vec<&str> = parts[1..].to_vec();
 
         // Handle yank: prefix (copied paths)
-        if input.starts_with("yank:") {
-            let data = &input[5..];
+        if let Some(data) = input.strip_prefix("yank:") {
             let display = data.replace(',', "\n");
             tracing::info!(paths = data, "Yanked");
-            self.screen.show_popup_info("Yanked", format!("Copied:\n{}", display));
+            self.screen
+                .show_popup_info("Yanked", format!("Copied:\n{}", display));
             return;
         }
 
         // Handle move_item:from:to (drag-and-drop reorder)
-        if input.starts_with("move_item:") {
-            let parts: Vec<&str> = input[10..].split(':').collect();
+        if let Some(rest) = input.strip_prefix("move_item:") {
+            let parts: Vec<&str> = rest.split(':').collect();
             if parts.len() == 2 {
                 if let (Ok(from), Ok(to)) = (parts[0].parse::<usize>(), parts[1].parse::<usize>()) {
                     tracing::info!(from = from, to = to, "Item moved");
@@ -900,7 +915,8 @@ impl App {
             let path = path.trim();
             let pb = PathBuf::from(path);
             if !pb.is_dir() {
-                self.screen.show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
+                self.screen
+                    .show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
                 return;
             }
             Self::save_library_dir(&pb);
@@ -915,7 +931,8 @@ impl App {
             if let Some(db) = db {
                 self.scan_library(db, vec![pb]);
             }
-            self.screen.show_popup_info("Scan Folder", format!("Browsing & indexing\n{}", path));
+            self.screen
+                .show_popup_info("Scan Folder", format!("Browsing & indexing\n{}", path));
             return;
         }
 
@@ -935,9 +952,11 @@ impl App {
             });
             if let Some(db) = db {
                 self.scan_library(db, vec![pb]);
-                self.screen.show_popup_info("Scanning", format!("Indexing {}", path));
+                self.screen
+                    .show_popup_info("Scanning", format!("Indexing {}", path));
             } else {
-                self.screen.show_popup_error("Scan failed", "No database available");
+                self.screen
+                    .show_popup_error("Scan failed", "No database available");
             }
             return;
         }
@@ -952,9 +971,13 @@ impl App {
             if pb.is_dir() {
                 Self::save_library_dir(&pb);
                 self.set_browser_dir(pb);
-                self.screen.show_popup_info("Library Folder", format!("Start directory set to\n{}", path));
+                self.screen.show_popup_info(
+                    "Library Folder",
+                    format!("Start directory set to\n{}", path),
+                );
             } else {
-                self.screen.show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
+                self.screen
+                    .show_popup_error("Invalid folder", format!("Not a directory:\n{}", path));
             }
             return;
         }
@@ -978,9 +1001,13 @@ impl App {
             if pb.is_file() {
                 *self.soundfont.lock().unwrap() = Some(pb.clone());
                 Self::save_soundfont(&pb);
-                self.screen.show_popup_info("SoundFont", format!("MIDI will use:\n{}", pb.to_string_lossy()));
+                self.screen.show_popup_info(
+                    "SoundFont",
+                    format!("MIDI will use:\n{}", pb.to_string_lossy()),
+                );
             } else {
-                self.screen.show_popup_error("SoundFont", format!("Not a file:\n{}", path));
+                self.screen
+                    .show_popup_error("SoundFont", format!("Not a file:\n{}", path));
             }
             return;
         }
@@ -1000,7 +1027,10 @@ impl App {
             return;
         }
         // Apply a chosen EQ preset to the equalizer widget.
-        if let Some(idx) = input.strip_prefix("eq_preset:").and_then(|s| s.parse::<usize>().ok()) {
+        if let Some(idx) = input
+            .strip_prefix("eq_preset:")
+            .and_then(|s| s.parse::<usize>().ok())
+        {
             if let Some(w) = self.screen.widget_at_mut(Slot::Eq) {
                 let any = w.as_mut() as &mut dyn Any;
                 if let Some(eq) = any.downcast_mut::<crate::widgets::equalizer::Equalizer>() {
@@ -1038,14 +1068,32 @@ impl App {
             let x: u16 = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
             let items = match name {
                 "file" => vec![
-                    crate::widgets::context_menu::MenuItem { label: "Open File...".into(), command: "open_file".into() },
-                    crate::widgets::context_menu::MenuItem { label: "Scan Folder...".into(), command: "scan_dir".into() },
-                    crate::widgets::context_menu::MenuItem { label: "Quit".into(), command: "quit".into() },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "Open File...".into(),
+                        command: "open_file".into(),
+                    },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "Scan Folder...".into(),
+                        command: "scan_dir".into(),
+                    },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "Quit".into(),
+                        command: "quit".into(),
+                    },
                 ],
                 "edit" => vec![
-                    crate::widgets::context_menu::MenuItem { label: "Sound Source...".into(), command: "set_source".into() },
-                    crate::widgets::context_menu::MenuItem { label: "SoundFont (.sf2)...".into(), command: "pick_soundfont".into() },
-                    crate::widgets::context_menu::MenuItem { label: "Text Color...".into(), command: format!("menu:color:{}", x) },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "Sound Source...".into(),
+                        command: "set_source".into(),
+                    },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "SoundFont (.sf2)...".into(),
+                        command: "pick_soundfont".into(),
+                    },
+                    crate::widgets::context_menu::MenuItem {
+                        label: "Text Color...".into(),
+                        command: format!("menu:color:{}", x),
+                    },
                 ],
                 "color" => crate::theme::PRIMARY_PALETTE
                     .iter()
@@ -1118,36 +1166,38 @@ impl App {
                     Err("Usage: seek <seconds>".to_string())
                 }
             }
-            "shuffle" => {
-                match args.first().copied() {
-                    Some("on") | Some("true") | Some("1") => {
-                        let _ = self.event_tx.send(Event::SetShuffle(true));
-                        Ok(())
-                    }
-                    Some("off") | Some("false") | Some("0") => {
-                        let _ = self.event_tx.send(Event::SetShuffle(false));
-                        Ok(())
-                    }
-                    _ => Err("Usage: shuffle on|off".to_string()),
+            "shuffle" => match args.first().copied() {
+                Some("on") | Some("true") | Some("1") => {
+                    let _ = self.event_tx.send(Event::SetShuffle(true));
+                    Ok(())
                 }
-            }
-            "repeat" => {
-                match args.first().copied() {
-                    Some("off") => {
-                        let _ = self.event_tx.send(Event::SetRepeat(crate::events::RepeatMode::Off));
-                        Ok(())
-                    }
-                    Some("track") => {
-                        let _ = self.event_tx.send(Event::SetRepeat(crate::events::RepeatMode::Track));
-                        Ok(())
-                    }
-                    Some("playlist") => {
-                        let _ = self.event_tx.send(Event::SetRepeat(crate::events::RepeatMode::Playlist));
-                        Ok(())
-                    }
-                    _ => Err("Usage: repeat off|track|playlist".to_string()),
+                Some("off") | Some("false") | Some("0") => {
+                    let _ = self.event_tx.send(Event::SetShuffle(false));
+                    Ok(())
                 }
-            }
+                _ => Err("Usage: shuffle on|off".to_string()),
+            },
+            "repeat" => match args.first().copied() {
+                Some("off") => {
+                    let _ = self
+                        .event_tx
+                        .send(Event::SetRepeat(crate::events::RepeatMode::Off));
+                    Ok(())
+                }
+                Some("track") => {
+                    let _ = self
+                        .event_tx
+                        .send(Event::SetRepeat(crate::events::RepeatMode::Track));
+                    Ok(())
+                }
+                Some("playlist") => {
+                    let _ = self
+                        .event_tx
+                        .send(Event::SetRepeat(crate::events::RepeatMode::Playlist));
+                    Ok(())
+                }
+                _ => Err("Usage: repeat off|track|playlist".to_string()),
+            },
             "rescan" => {
                 if let Some(ref db) = self.db {
                     let music_dirs = std::env::args()
@@ -1175,7 +1225,8 @@ impl App {
                     if name == "list" {
                         let names = self.screen.theme().list_names();
                         let list = names.join("\n");
-                        self.screen.show_popup_info("Themes", format!("Available themes:\n{}", list));
+                        self.screen
+                            .show_popup_info("Themes", format!("Available themes:\n{}", list));
                         self.screen.mark_dirty();
                         Ok(())
                     } else if let Some(rest) = name.strip_prefix("preview:") {
@@ -1227,7 +1278,8 @@ impl App {
                     if *name == "list" {
                         let names = self.screen.layout().list_names();
                         let list = names.join("\n");
-                        self.screen.show_popup_info("Layouts", format!("Available layouts:\n{}", list));
+                        self.screen
+                            .show_popup_info("Layouts", format!("Available layouts:\n{}", list));
                         self.screen.mark_dirty();
                         Ok(())
                     } else {
@@ -1249,13 +1301,18 @@ impl App {
                     let value = args[1..].join(" ");
                     self.set_config(key, &value)
                 } else {
-                    Err("Usage: set <key> <value>  (keys: theme, volume, library, max_fps)".to_string())
+                    Err(
+                        "Usage: set <key> <value>  (keys: theme, volume, library, max_fps)"
+                            .to_string(),
+                    )
                 }
             }
             "add" => {
                 if let Some(path_str) = args.first() {
                     let path = PathBuf::from(path_str);
-                    let _ = self.event_tx.send(Event::DirectoryChanged(path.to_string_lossy().to_string()));
+                    let _ = self
+                        .event_tx
+                        .send(Event::DirectoryChanged(path.to_string_lossy().to_string()));
                     if let Some(ref db) = self.db {
                         self.scan_library(db.clone(), vec![path]);
                     }
@@ -1293,7 +1350,8 @@ impl App {
                 Ok(())
             }
             "library_folder" => {
-                self.screen.show_popup_input("Library Folder — start directory", "library_dir".into());
+                self.screen
+                    .show_popup_input("Library Folder — start directory", "library_dir".into());
                 self.screen.mark_dirty();
                 Ok(())
             }
@@ -1307,12 +1365,18 @@ impl App {
                     .and_then(|p| p.parent().map(|d| d.to_path_buf()))
                     .or_else(dirs::home_dir)
                     .unwrap_or_else(|| PathBuf::from("/"));
-                self.screen.show_file_picker(start, vec!["sf2".into()], "set_soundfont", "Select SoundFont");
+                self.screen.show_file_picker(
+                    start,
+                    vec!["sf2".into()],
+                    "set_soundfont",
+                    "Select SoundFont",
+                );
                 self.screen.mark_dirty();
                 Ok(())
             }
             "open_file" => {
-                self.screen.show_popup_input("Open File — enter path", "play_file".into());
+                self.screen
+                    .show_popup_input("Open File — enter path", "play_file".into());
                 self.screen.mark_dirty();
                 Ok(())
             }
@@ -1321,7 +1385,10 @@ impl App {
                 let start = self
                     .screen
                     .widget_at_mut(Slot::MainLeft)
-                    .and_then(|w| (w.as_mut() as &mut dyn Any).downcast_mut::<crate::widgets::browser_view::BrowserView>())
+                    .and_then(|w| {
+                        (w.as_mut() as &mut dyn Any)
+                            .downcast_mut::<crate::widgets::browser_view::BrowserView>()
+                    })
                     .map(|b| b.current_dir().clone())
                     .or_else(dirs::home_dir)
                     .unwrap_or_else(|| PathBuf::from("/"));
@@ -1330,7 +1397,8 @@ impl App {
                 Ok(())
             }
             "set_source" => {
-                self.screen.show_popup_input("Sound Source — enter output device", "sound_source".into());
+                self.screen
+                    .show_popup_input("Sound Source — enter output device", "sound_source".into());
                 self.screen.mark_dirty();
                 Ok(())
             }
@@ -1338,7 +1406,10 @@ impl App {
                 const TANU_ART: &str = include_str!("../widgets/tanu_art.txt");
                 self.screen.show_popup_about(
                     "About Tanu",
-                    format!("Tanu {} — a terminal music player in Rust (cmus-inspired)", env!("TANU_VERSION")),
+                    format!(
+                        "Tanu {} — a terminal music player in Rust (cmus-inspired)",
+                        env!("TANU_VERSION")
+                    ),
                     TANU_ART,
                 );
                 self.screen.mark_dirty();
@@ -1352,10 +1423,7 @@ impl App {
                 self.screen.focus_previous();
                 Ok(())
             }
-            _ => {
-                self.commands.execute(input)
-                    .map_err(|e| e.to_string())
-            }
+            _ => self.commands.execute(input).map_err(|e| e.to_string()),
         };
 
         let _ = self.event_tx.send(Event::CommandResult {
@@ -1459,6 +1527,10 @@ mod tests {
         let counter_id = counter.id();
         app.register_component(Box::new(counter));
         app.handle_event(&Event::Play);
-        let _ = app.components.iter().find(|c| c.id() == counter_id).unwrap();
+        let _ = app
+            .components
+            .iter()
+            .find(|c| c.id() == counter_id)
+            .unwrap();
     }
 }

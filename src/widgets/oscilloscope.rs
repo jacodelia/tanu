@@ -80,13 +80,21 @@ impl Oscilloscope {
             let mag = goertzel(&samples, self.freqs[i], rate);
             let level = (mag * 6.0).sqrt().min(1.0);
             let prev = self.levels[i];
-            self.levels[i] = if level > prev { level } else { prev * 0.82 + level * 0.18 };
+            self.levels[i] = if level > prev {
+                level
+            } else {
+                prev * 0.82 + level * 0.18
+            };
         }
     }
 
     fn render_wave(&self, frame: &mut Frame, area: Rect) {
         let active = self.viz.is_active();
-        let color = if active { Color::Rgb(166, 227, 161) } else { Color::Rgb(108, 112, 134) };
+        let color = if active {
+            Color::Rgb(166, 227, 161)
+        } else {
+            Color::Rgb(108, 112, 134)
+        };
         let n = 120usize;
         let wf = self.viz.waveform(n);
         let points: Vec<(f64, f64)> = if wf.is_empty() {
@@ -94,7 +102,12 @@ impl Oscilloscope {
         } else {
             wf.iter()
                 .enumerate()
-                .map(|(i, &s)| (i as f64 / (wf.len() - 1).max(1) as f64, (s as f64).clamp(-1.0, 1.0)))
+                .map(|(i, &s)| {
+                    (
+                        i as f64 / (wf.len() - 1).max(1) as f64,
+                        (s as f64).clamp(-1.0, 1.0),
+                    )
+                })
                 .collect()
         };
         let canvas = Canvas::default()
@@ -103,7 +116,13 @@ impl Oscilloscope {
             .y_bounds([-1.0, 1.0])
             .paint(move |ctx| {
                 for w in points.windows(2) {
-                    ctx.draw(&CanvasLine { x1: w[0].0, y1: w[0].1, x2: w[1].0, y2: w[1].1, color });
+                    ctx.draw(&CanvasLine {
+                        x1: w[0].0,
+                        y1: w[0].1,
+                        x2: w[1].0,
+                        y2: w[1].1,
+                        color,
+                    });
                 }
             });
         frame.render_widget(canvas, area);
@@ -142,19 +161,37 @@ impl Oscilloscope {
 }
 
 impl Widget for Oscilloscope {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::KeyPress(k) if self.focused => {
                 if matches!(k.code, KeyCode::Char('m') | KeyCode::Tab) {
-                    self.mode = if self.mode == Mode::Wave { Mode::Spec } else { Mode::Wave };
+                    self.mode = if self.mode == Mode::Wave {
+                        Mode::Spec
+                    } else {
+                        Mode::Wave
+                    };
                     self.dirty = true;
                     return EventResult::Consumed;
                 }
@@ -193,11 +230,20 @@ impl Widget for Oscilloscope {
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let border_color = if self.focused { crate::theme::border_focused() } else { crate::theme::border() };
+        let border_color = if self.focused {
+            crate::theme::border_focused()
+        } else {
+            crate::theme::border()
+        };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(" Visualizer ", Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)));
+            .title(Span::styled(
+                " Visualizer ",
+                Style::default()
+                    .fg(crate::theme::primary())
+                    .add_modifier(Modifier::BOLD),
+            ));
         let inner = block.inner(area);
         frame.render_widget(block, area);
         if inner.width == 0 || inner.height == 0 {
@@ -205,9 +251,23 @@ impl Widget for Oscilloscope {
         }
 
         // Tab row (WAVE | SPEC), clickable.
-        let active = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::primary()).add_modifier(Modifier::BOLD);
+        let active = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::primary())
+            .add_modifier(Modifier::BOLD);
         let idle = Style::default().fg(Color::Rgb(108, 112, 134));
-        let (ws, is) = (if self.mode == Mode::Wave { active } else { idle }, if self.mode == Mode::Spec { active } else { idle });
+        let (ws, is) = (
+            if self.mode == Mode::Wave {
+                active
+            } else {
+                idle
+            },
+            if self.mode == Mode::Spec {
+                active
+            } else {
+                idle
+            },
+        );
         let tab_line = Line::from(vec![
             Span::styled(" WAVE ", ws),
             Span::raw(" "),
@@ -216,25 +276,48 @@ impl Widget for Oscilloscope {
         self.tab_row = inner.y - area.y; // local
         self.tab_wave = (inner.x - area.x, inner.x - area.x + 6);
         self.tab_spec = (inner.x - area.x + 7, inner.x - area.x + 13);
-        frame.render_widget(Paragraph::new(tab_line), Rect { x: inner.x, y: inner.y, width: inner.width, height: 1 });
+        frame.render_widget(
+            Paragraph::new(tab_line),
+            Rect {
+                x: inner.x,
+                y: inner.y,
+                width: inner.width,
+                height: 1,
+            },
+        );
 
         // Content below the tab row.
         if inner.height <= 1 {
             return;
         }
-        let content = Rect { x: inner.x, y: inner.y + 1, width: inner.width, height: inner.height - 1 };
+        let content = Rect {
+            x: inner.x,
+            y: inner.y + 1,
+            width: inner.width,
+            height: inner.height - 1,
+        };
         match self.mode {
             Mode::Wave => self.render_wave(frame, content),
             Mode::Spec => self.render_spec(frame, content),
         }
     }
 
-    fn on_focus(&mut self) { self.focused = true; self.dirty = true; }
-    fn on_blur(&mut self) { self.focused = false; self.dirty = true; }
+    fn on_focus(&mut self) {
+        self.focused = true;
+        self.dirty = true;
+    }
+    fn on_blur(&mut self) {
+        self.focused = false;
+        self.dirty = true;
+    }
 }
 
 fn bar_color(from_bottom: usize, height: usize) -> Color {
-    let t = if height <= 1 { 0.0 } else { from_bottom as f32 / (height - 1) as f32 };
+    let t = if height <= 1 {
+        0.0
+    } else {
+        from_bottom as f32 / (height - 1) as f32
+    };
     if t < 0.6 {
         Color::Rgb(166, 227, 161)
     } else if t < 0.85 {
@@ -272,7 +355,11 @@ mod tests {
         s.focused = true;
         let _ = s.handle_event(&Event::KeyPress(crate::events::KeyEvent {
             code: KeyCode::Char('m'),
-            modifiers: crate::events::KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: crate::events::KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             mode: crate::events::UiMode::Normal,
         }));
         assert!(s.mode == Mode::Spec);

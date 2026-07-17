@@ -64,13 +64,27 @@ impl PlaylistView {
 }
 
 impl Widget for PlaylistView {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
@@ -194,7 +208,9 @@ impl Widget for PlaylistView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
+        let highlight_style = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::border_focused());
         let track_style = Style::default().fg(Color::Rgb(205, 214, 244));
         let index_style = Style::default().fg(Color::Rgb(108, 112, 134));
 

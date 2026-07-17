@@ -54,20 +54,43 @@ impl MenuBar {
         let mut spans: Vec<Span> = Vec::new();
         let mut x: u16 = 0;
 
-        let menu_style = Style::default().fg(Color::Rgb(205, 214, 244)).bg(Color::Rgb(49, 50, 68));
-        let brand_style = Style::default().fg(crate::theme::primary()).bg(Color::Rgb(49, 50, 68)).add_modifier(ratatui::style::Modifier::BOLD);
-        let sep_style = Style::default().fg(Color::Rgb(108, 112, 134)).bg(Color::Rgb(49, 50, 68));
+        let menu_style = Style::default()
+            .fg(Color::Rgb(205, 214, 244))
+            .bg(Color::Rgb(49, 50, 68));
+        let brand_style = Style::default()
+            .fg(crate::theme::primary())
+            .bg(Color::Rgb(49, 50, 68))
+            .add_modifier(ratatui::style::Modifier::BOLD);
+        let sep_style = Style::default()
+            .fg(Color::Rgb(108, 112, 134))
+            .bg(Color::Rgb(49, 50, 68));
 
-        let push = |spans: &mut Vec<Span>, segments: &mut Vec<Segment>, x: &mut u16, text: String, style: Style, command: String| {
+        let push = |spans: &mut Vec<Span>,
+                    segments: &mut Vec<Segment>,
+                    x: &mut u16,
+                    text: String,
+                    style: Style,
+                    command: String| {
             let start = *x;
             let w = text.chars().count() as u16;
             spans.push(Span::styled(text, style));
             *x += w;
-            segments.push(Segment { start, end: *x, command });
+            segments.push(Segment {
+                start,
+                end: *x,
+                command,
+            });
         };
 
         for (label, cmd) in MENUS.iter() {
-            push(&mut spans, &mut self.segments, &mut x, format!(" {} ", label), menu_style, cmd.to_string());
+            push(
+                &mut spans,
+                &mut self.segments,
+                &mut x,
+                format!(" {} ", label),
+                menu_style,
+                cmd.to_string(),
+            );
             spans.push(Span::raw(" "));
             x += 1;
         }
@@ -82,7 +105,11 @@ impl MenuBar {
         }
         let brand_start = x;
         spans.push(Span::styled(brand.to_string(), brand_style));
-        self.segments.push(Segment { start: brand_start, end: brand_start + brand_w, command: "about".to_string() });
+        self.segments.push(Segment {
+            start: brand_start,
+            end: brand_start + brand_w,
+            command: "about".to_string(),
+        });
 
         Line::from(spans)
     }
@@ -109,14 +136,30 @@ impl Default for MenuBar {
 }
 
 impl Widget for MenuBar {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
-    fn is_focusable(&self) -> bool { false }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+    fn is_focusable(&self) -> bool {
+        false
+    }
 
     fn handle_mouse(&mut self, x: u16, _y: u16, action: &MouseAction) -> EventResult {
         match action {

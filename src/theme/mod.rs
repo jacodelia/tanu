@@ -115,8 +115,7 @@ impl ColorDef {
 
 /// Parse a hex or named color into a ratatui `Color`.
 pub fn parse_color(s: &str) -> Option<Color> {
-    if s.starts_with('#') {
-        let hex = &s[1..];
+    if let Some(hex) = s.strip_prefix('#') {
         if hex.len() == 6 {
             let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
             let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
@@ -153,6 +152,12 @@ pub struct ThemeRegistry {
     themes: HashMap<String, Theme>,
     current: String,
     preview: Option<String>,
+}
+
+impl Default for ThemeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ThemeRegistry {
@@ -277,330 +282,794 @@ impl Theme {
 
     fn catppuccin_mocha() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#cdd6f4".to_string()), bg: Some("#1e1e2e".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#1e1e2e".to_string()), bg: Some("#89b4fa".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#1e1e2e".to_string()), bg: Some("#a6e3a1".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#1e1e2e".to_string()), bg: Some("#89b4fa".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#89b4fa".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#45475a".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#cdd6f4".to_string()), bg: Some("#313244".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#1e1e2e".to_string()), bg: Some("#cba6f7".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#6c7086".to_string()), bg: Some("#313244".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "catppuccin-mocha".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#cdd6f4".to_string()),
+                bg: Some("#1e1e2e".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#1e1e2e".to_string()),
+                bg: Some("#89b4fa".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#1e1e2e".to_string()),
+                bg: Some("#a6e3a1".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#1e1e2e".to_string()),
+                bg: Some("#89b4fa".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#89b4fa".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#45475a".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#cdd6f4".to_string()),
+                bg: Some("#313244".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#1e1e2e".to_string()),
+                bg: Some("#cba6f7".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#6c7086".to_string()),
+                bg: Some("#313244".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "catppuccin-mocha".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn catppuccin_latte() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#4c4f69".to_string()), bg: Some("#eff1f5".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#eff1f5".to_string()), bg: Some("#1e66f5".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#eff1f5".to_string()), bg: Some("#40a02b".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#eff1f5".to_string()), bg: Some("#1e66f5".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#1e66f5".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#ccd0da".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#4c4f69".to_string()), bg: Some("#ccd0da".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#eff1f5".to_string()), bg: Some("#8839ef".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#9ca0b0".to_string()), bg: Some("#ccd0da".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "catppuccin-latte".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#4c4f69".to_string()),
+                bg: Some("#eff1f5".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#eff1f5".to_string()),
+                bg: Some("#1e66f5".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#eff1f5".to_string()),
+                bg: Some("#40a02b".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#eff1f5".to_string()),
+                bg: Some("#1e66f5".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#1e66f5".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#ccd0da".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#4c4f69".to_string()),
+                bg: Some("#ccd0da".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#eff1f5".to_string()),
+                bg: Some("#8839ef".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#9ca0b0".to_string()),
+                bg: Some("#ccd0da".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "catppuccin-latte".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn gruvbox_dark() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#ebdbb2".to_string()), bg: Some("#282828".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#282828".to_string()), bg: Some("#458588".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#282828".to_string()), bg: Some("#98971a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#282828".to_string()), bg: Some("#458588".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#83a598".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#3c3836".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#ebdbb2".to_string()), bg: Some("#3c3836".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#282828".to_string()), bg: Some("#d3869b".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#a89984".to_string()), bg: Some("#3c3836".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "gruvbox-dark".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#ebdbb2".to_string()),
+                bg: Some("#282828".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#282828".to_string()),
+                bg: Some("#458588".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#282828".to_string()),
+                bg: Some("#98971a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#282828".to_string()),
+                bg: Some("#458588".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#83a598".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#3c3836".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#ebdbb2".to_string()),
+                bg: Some("#3c3836".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#282828".to_string()),
+                bg: Some("#d3869b".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#a89984".to_string()),
+                bg: Some("#3c3836".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "gruvbox-dark".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn gruvbox_light() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#3c3836".to_string()), bg: Some("#fbf1c7".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#fbf1c7".to_string()), bg: Some("#076678".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#fbf1c7".to_string()), bg: Some("#79740e".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#fbf1c7".to_string()), bg: Some("#076678".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#076678".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#ebdbb2".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#3c3836".to_string()), bg: Some("#ebdbb2".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#fbf1c7".to_string()), bg: Some("#8f3f71".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#7c6f64".to_string()), bg: Some("#ebdbb2".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "gruvbox-light".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#3c3836".to_string()),
+                bg: Some("#fbf1c7".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#fbf1c7".to_string()),
+                bg: Some("#076678".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#fbf1c7".to_string()),
+                bg: Some("#79740e".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#fbf1c7".to_string()),
+                bg: Some("#076678".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#076678".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#ebdbb2".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#3c3836".to_string()),
+                bg: Some("#ebdbb2".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#fbf1c7".to_string()),
+                bg: Some("#8f3f71".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#7c6f64".to_string()),
+                bg: Some("#ebdbb2".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "gruvbox-light".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn nord() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#d8dee9".to_string()), bg: Some("#2e3440".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#2e3440".to_string()), bg: Some("#81a1c1".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#2e3440".to_string()), bg: Some("#a3be8c".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#2e3440".to_string()), bg: Some("#81a1c1".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#88c0d0".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#4c566a".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#d8dee9".to_string()), bg: Some("#4c566a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#2e3440".to_string()), bg: Some("#b48ead".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#616e88".to_string()), bg: Some("#4c566a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "nord".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#d8dee9".to_string()),
+                bg: Some("#2e3440".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#2e3440".to_string()),
+                bg: Some("#81a1c1".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#2e3440".to_string()),
+                bg: Some("#a3be8c".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#2e3440".to_string()),
+                bg: Some("#81a1c1".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#88c0d0".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#4c566a".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#d8dee9".to_string()),
+                bg: Some("#4c566a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#2e3440".to_string()),
+                bg: Some("#b48ead".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#616e88".to_string()),
+                bg: Some("#4c566a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "nord".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn tokyonight() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#c0caf5".to_string()), bg: Some("#1a1b26".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#1a1b26".to_string()), bg: Some("#7aa2f7".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#1a1b26".to_string()), bg: Some("#9ece6a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#1a1b26".to_string()), bg: Some("#7aa2f7".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#7dcfff".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#292e42".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#c0caf5".to_string()), bg: Some("#292e42".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#1a1b26".to_string()), bg: Some("#bb9af7".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#565f89".to_string()), bg: Some("#292e42".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "tokyonight".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#c0caf5".to_string()),
+                bg: Some("#1a1b26".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#1a1b26".to_string()),
+                bg: Some("#7aa2f7".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#1a1b26".to_string()),
+                bg: Some("#9ece6a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#1a1b26".to_string()),
+                bg: Some("#7aa2f7".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#7dcfff".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#292e42".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#c0caf5".to_string()),
+                bg: Some("#292e42".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#1a1b26".to_string()),
+                bg: Some("#bb9af7".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#565f89".to_string()),
+                bg: Some("#292e42".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "tokyonight".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn dracula() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#f8f8f2".to_string()), bg: Some("#282a36".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#282a36".to_string()), bg: Some("#8be9fd".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#282a36".to_string()), bg: Some("#50fa7b".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#282a36".to_string()), bg: Some("#8be9fd".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#ff79c6".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#44475a".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#f8f8f2".to_string()), bg: Some("#44475a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#282a36".to_string()), bg: Some("#bd93f9".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#6272a4".to_string()), bg: Some("#44475a".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "dracula".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#f8f8f2".to_string()),
+                bg: Some("#282a36".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#282a36".to_string()),
+                bg: Some("#8be9fd".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#282a36".to_string()),
+                bg: Some("#50fa7b".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#282a36".to_string()),
+                bg: Some("#8be9fd".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#ff79c6".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#44475a".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#f8f8f2".to_string()),
+                bg: Some("#44475a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#282a36".to_string()),
+                bg: Some("#bd93f9".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#6272a4".to_string()),
+                bg: Some("#44475a".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "dracula".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 
     fn solarized() -> Theme {
         let mut colors = HashMap::new();
-        colors.insert("background".to_string(), ColorDef {
-            fg: Some("#839496".to_string()), bg: Some("#002b36".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("statusbar".to_string(), ColorDef {
-            fg: Some("#002b36".to_string()), bg: Some("#268bd2".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("progressbar".to_string(), ColorDef {
-            fg: Some("#002b36".to_string()), bg: Some("#859900".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.selected".to_string(), ColorDef {
-            fg: Some("#002b36".to_string()), bg: Some("#268bd2".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("list.highlight".to_string(), ColorDef {
-            fg: Some("#2aa198".to_string()), bg: None,
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("divider".to_string(), ColorDef {
-            fg: Some("#073642".to_string()), bg: None,
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("command_bar".to_string(), ColorDef {
-            fg: Some("#839496".to_string()), bg: Some("#073642".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        colors.insert("tab.active".to_string(), ColorDef {
-            fg: Some("#002b36".to_string()), bg: Some("#d33682".to_string()),
-            bold: Some(true), italic: None, underline: None,
-        });
-        colors.insert("tab.inactive".to_string(), ColorDef {
-            fg: Some("#586e75".to_string()), bg: Some("#073642".to_string()),
-            bold: None, italic: None, underline: None,
-        });
-        Theme { name: "solarized".into(), author: Some("Tanu".into()), colors }
+        colors.insert(
+            "background".to_string(),
+            ColorDef {
+                fg: Some("#839496".to_string()),
+                bg: Some("#002b36".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "statusbar".to_string(),
+            ColorDef {
+                fg: Some("#002b36".to_string()),
+                bg: Some("#268bd2".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "progressbar".to_string(),
+            ColorDef {
+                fg: Some("#002b36".to_string()),
+                bg: Some("#859900".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.selected".to_string(),
+            ColorDef {
+                fg: Some("#002b36".to_string()),
+                bg: Some("#268bd2".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "list.highlight".to_string(),
+            ColorDef {
+                fg: Some("#2aa198".to_string()),
+                bg: None,
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "divider".to_string(),
+            ColorDef {
+                fg: Some("#073642".to_string()),
+                bg: None,
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "command_bar".to_string(),
+            ColorDef {
+                fg: Some("#839496".to_string()),
+                bg: Some("#073642".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.active".to_string(),
+            ColorDef {
+                fg: Some("#002b36".to_string()),
+                bg: Some("#d33682".to_string()),
+                bold: Some(true),
+                italic: None,
+                underline: None,
+            },
+        );
+        colors.insert(
+            "tab.inactive".to_string(),
+            ColorDef {
+                fg: Some("#586e75".to_string()),
+                bg: Some("#073642".to_string()),
+                bold: None,
+                italic: None,
+                underline: None,
+            },
+        );
+        Theme {
+            name: "solarized".into(),
+            author: Some("Tanu".into()),
+            colors,
+        }
     }
 }
 
@@ -687,10 +1156,26 @@ mod tests {
     #[test]
     fn test_every_builtin_has_colors() {
         for theme in Theme::all_builtin() {
-            assert!(!theme.colors.is_empty(), "Theme {} has no colors", theme.name);
-            assert!(theme.colors.contains_key("background"), "Theme {} missing background", theme.name);
-            assert!(theme.colors.contains_key("statusbar"), "Theme {} missing statusbar", theme.name);
-            assert!(theme.colors.contains_key("tab.active"), "Theme {} missing tab.active", theme.name);
+            assert!(
+                !theme.colors.is_empty(),
+                "Theme {} has no colors",
+                theme.name
+            );
+            assert!(
+                theme.colors.contains_key("background"),
+                "Theme {} missing background",
+                theme.name
+            );
+            assert!(
+                theme.colors.contains_key("statusbar"),
+                "Theme {} missing statusbar",
+                theme.name
+            );
+            assert!(
+                theme.colors.contains_key("tab.active"),
+                "Theme {} missing tab.active",
+                theme.name
+            );
         }
     }
 

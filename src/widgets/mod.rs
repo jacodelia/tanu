@@ -77,23 +77,23 @@ pub trait Widget: Send + Sync + Any {
     fn is_focused(&self) -> bool;
 }
 
-/// Re-export common widget implementations.
-pub mod table;
-pub mod tree;
-pub mod library_view;
-pub mod playlist_view;
-pub mod queue_view;
+pub mod album_art;
 pub mod browser_view;
-pub mod status_bar;
-pub mod progress_bar;
-pub mod seek_bar;
-pub mod popup;
+pub mod command_bar;
 pub mod context_menu;
 pub mod dir_picker;
-pub mod tabs;
+pub mod equalizer;
+pub mod library_view;
 pub mod menu_bar;
 pub mod oscilloscope;
-pub mod album_art;
-pub mod equalizer;
+pub mod playlist_view;
+pub mod popup;
+pub mod progress_bar;
+pub mod queue_view;
 pub mod search_bar;
-pub mod command_bar;
+pub mod seek_bar;
+pub mod status_bar;
+/// Re-export common widget implementations.
+pub mod table;
+pub mod tabs;
+pub mod tree;

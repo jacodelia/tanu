@@ -6,6 +6,12 @@
 /// Placeholder for service module.
 pub struct Services;
 
+impl Default for Services {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Services {
     pub fn new() -> Self {
         Self {}

@@ -3,10 +3,10 @@
 //! Wraps rusqlite for library persistence. All queries run via
 //! `spawn_blocking` to avoid blocking the async runtime.
 
+use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Arc;
-use parking_lot::Mutex;
 
 /// Database handle, shared across components.
 #[derive(Clone)]
@@ -165,8 +165,10 @@ mod tests {
 
         // Verify tables exist
         db.with_connection(|conn| {
-            let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
-            let tables: Vec<String> = stmt.query_map([], |row| row.get(0))?
+            let mut stmt =
+                conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+            let tables: Vec<String> = stmt
+                .query_map([], |row| row.get(0))?
                 .filter_map(|r| r.ok())
                 .collect();
             assert!(tables.contains(&"artists".to_string()));
@@ -175,7 +177,8 @@ mod tests {
             assert!(tables.contains(&"playlists".to_string()));
             assert!(tables.contains(&"playlist_tracks".to_string()));
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     #[test]
@@ -187,7 +190,7 @@ mod tests {
         db.with_connection(|conn| {
             conn.execute(
                 "INSERT INTO artists (id, name) VALUES (?1, ?2)",
-                &["artist-1", "Test Artist"],
+                ["artist-1", "Test Artist"],
             )?;
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM artists WHERE name = 'Test Artist'",
@@ -196,6 +199,7 @@ mod tests {
             )?;
             assert_eq!(count, 1);
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
 }

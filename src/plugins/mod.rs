@@ -169,7 +169,10 @@ impl PluginManager {
         let mut plugin = self.plugins.remove(name)?;
         plugin.on_shutdown();
         self.initialized.retain(|n| n != name);
-        let _ = self.context.sender().send(Event::PluginUnloaded(name.to_string()));
+        let _ = self
+            .context
+            .sender()
+            .send(Event::PluginUnloaded(name.to_string()));
         Some(plugin)
     }
 
@@ -210,6 +213,11 @@ impl PluginManager {
     pub fn len(&self) -> usize {
         self.plugins.len()
     }
+
+    /// Whether no plugins are registered.
+    pub fn is_empty(&self) -> bool {
+        self.plugins.is_empty()
+    }
 }
 
 impl Default for PluginManager {
@@ -238,10 +246,18 @@ mod tests {
     }
 
     impl Plugin for TestPlugin {
-        fn name(&self) -> &str { "test" }
-        fn version(&self) -> &str { "1.0.0" }
-        fn author(&self) -> &str { "Tanu" }
-        fn description(&self) -> &str { "A test plugin" }
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn version(&self) -> &str {
+            "1.0.0"
+        }
+        fn author(&self) -> &str {
+            "Tanu"
+        }
+        fn description(&self) -> &str {
+            "A test plugin"
+        }
 
         fn on_init(&mut self, _ctx: &PluginContext) {
             self.init_called = true;
@@ -262,7 +278,11 @@ mod tests {
         let (tx, _rx) = event_channel();
         let ctx = PluginContext::new(tx);
         let mut manager = PluginManager::new(ctx);
-        let plugin = Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None });
+        let plugin = Box::new(TestPlugin {
+            init_called: false,
+            tick_count: 0,
+            last_event: None,
+        });
         assert!(manager.register(plugin).is_ok());
         assert_eq!(manager.len(), 1);
     }
@@ -272,7 +292,11 @@ mod tests {
         let (tx, _rx) = event_channel();
         let ctx = PluginContext::new(tx);
         let mut manager = PluginManager::new(ctx);
-        let plugin = Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None });
+        let plugin = Box::new(TestPlugin {
+            init_called: false,
+            tick_count: 0,
+            last_event: None,
+        });
         manager.register(plugin).unwrap();
         manager.dispatch_event(&Event::Play);
         // verify plugin received event via its internal state
@@ -284,7 +308,13 @@ mod tests {
         let (tx, _rx) = event_channel();
         let ctx = PluginContext::new(tx);
         let mut manager = PluginManager::new(ctx);
-        manager.register(Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None })).unwrap();
+        manager
+            .register(Box::new(TestPlugin {
+                init_called: false,
+                tick_count: 0,
+                last_event: None,
+            }))
+            .unwrap();
         manager.tick_all();
         manager.tick_all();
         // ticks dispatched without error
@@ -295,7 +325,13 @@ mod tests {
         let (tx, _rx) = event_channel();
         let ctx = PluginContext::new(tx);
         let mut manager = PluginManager::new(ctx);
-        manager.register(Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None })).unwrap();
+        manager
+            .register(Box::new(TestPlugin {
+                init_called: false,
+                tick_count: 0,
+                last_event: None,
+            }))
+            .unwrap();
         let removed = manager.unregister("test");
         assert!(removed.is_some());
         assert!(manager.list().is_empty());
@@ -306,8 +342,20 @@ mod tests {
         let (tx, _rx) = event_channel();
         let ctx = PluginContext::new(tx);
         let mut manager = PluginManager::new(ctx);
-        manager.register(Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None })).unwrap();
-        assert!(manager.register(Box::new(TestPlugin { init_called: false, tick_count: 0, last_event: None })).is_err());
+        manager
+            .register(Box::new(TestPlugin {
+                init_called: false,
+                tick_count: 0,
+                last_event: None,
+            }))
+            .unwrap();
+        assert!(manager
+            .register(Box::new(TestPlugin {
+                init_called: false,
+                tick_count: 0,
+                last_event: None
+            }))
+            .is_err());
     }
 
     #[test]

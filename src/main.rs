@@ -3,25 +3,25 @@
 #![allow(dead_code)]
 
 mod app;
-mod core;
 mod audio;
-mod library;
+mod browser;
+mod commands;
+mod config;
+mod core;
 mod database;
+mod events;
+mod input;
+mod library;
+mod mouse;
 mod player;
 mod playlist;
+mod plugins;
 mod queue;
-mod browser;
 mod search;
-mod config;
-mod events;
-mod commands;
-mod input;
-mod mouse;
-mod widgets;
+mod services;
 mod theme;
 mod ui;
-mod services;
-mod plugins;
+mod widgets;
 
 use std::panic;
 use std::path::PathBuf;

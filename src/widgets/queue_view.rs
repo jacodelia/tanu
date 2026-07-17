@@ -21,6 +21,12 @@ pub struct QueueView {
     scroll_offset: usize,
 }
 
+impl Default for QueueView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QueueView {
     pub fn new() -> Self {
         Self {
@@ -62,13 +68,27 @@ impl QueueView {
 }
 
 impl Widget for QueueView {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
@@ -194,7 +214,9 @@ impl Widget for QueueView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
+        let highlight_style = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::border_focused());
         let playing_style = Style::default().fg(Color::Rgb(245, 224, 220));
         let track_style = Style::default().fg(Color::Rgb(205, 214, 244));
 
@@ -206,7 +228,13 @@ impl Widget for QueueView {
                 let is_selected = global_idx == self.selected_index;
                 let is_playing = self.current_index == Some(global_idx);
 
-                let icon = if is_playing { "▶ " } else if is_selected { "● " } else { "  " };
+                let icon = if is_playing {
+                    "▶ "
+                } else if is_selected {
+                    "● "
+                } else {
+                    "  "
+                };
                 let text = format!("{}{}", icon, display);
 
                 let style = if is_selected {

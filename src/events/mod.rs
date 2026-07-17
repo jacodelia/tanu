@@ -147,10 +147,7 @@ impl MouseAction {
 
     /// Returns true if this action is a click (should trigger focus).
     pub fn is_click(&self) -> bool {
-        matches!(
-            self,
-            MouseAction::Press(..) | MouseAction::RightClick(..)
-        )
+        matches!(self, MouseAction::Press(..) | MouseAction::RightClick(..))
     }
 }
 

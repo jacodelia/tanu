@@ -39,6 +39,12 @@ pub struct LibraryView {
     scroll_offset: usize,
 }
 
+impl Default for LibraryView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LibraryView {
     pub fn new() -> Self {
         Self {
@@ -74,7 +80,7 @@ impl LibraryView {
             let mut stmt = conn.prepare(
                 "SELECT a.id, a.name FROM artists a
                  WHERE EXISTS (SELECT 1 FROM tracks t WHERE t.artist_id = a.id)
-                 ORDER BY a.name"
+                 ORDER BY a.name",
             )?;
             let items: Vec<(String, String)> = stmt
                 .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -102,7 +108,7 @@ impl LibraryView {
                     let mut stmt = conn.prepare(
                         "SELECT al.id, al.title FROM albums al
                          WHERE al.artist_id = ?1
-                         ORDER BY al.year, al.title"
+                         ORDER BY al.year, al.title",
                     )?;
                     let items: Vec<(String, String)> = stmt
                         .query_map([artist_id], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -130,7 +136,7 @@ impl LibraryView {
                             let mut stmt = conn.prepare(
                                 "SELECT t.id, t.title FROM tracks t
                                  WHERE t.album_id = ?1
-                                 ORDER BY t.track_number, t.title"
+                                 ORDER BY t.track_number, t.title",
                             )?;
                             let items: Vec<(String, String)> = stmt
                                 .query_map([album_id], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -256,7 +262,10 @@ impl Widget for LibraryView {
                         }
                         Some(NodeKind::Track) => {
                             if let Some(key) = self.selected_key() {
-                                return EventResult::Event(Event::Command(format!("play_track:{}", key)));
+                                return EventResult::Event(Event::Command(format!(
+                                    "play_track:{}",
+                                    key
+                                )));
                             }
                         }
                         None => {}
@@ -273,7 +282,9 @@ impl Widget for LibraryView {
                                 }
                             }
                             NodeKind::Track => {
-                                self.selected_index = self.rows.iter()
+                                self.selected_index = self
+                                    .rows
+                                    .iter()
                                     .rposition(|r| r.kind == NodeKind::Album)
                                     .unwrap_or(0);
                                 self.dirty = true;
@@ -284,7 +295,8 @@ impl Widget for LibraryView {
                 }
                 KeyCode::PageDown => {
                     let visible = self.visible_rows().max(1);
-                    self.selected_index = (self.selected_index + visible).min(self.rows.len().saturating_sub(1));
+                    self.selected_index =
+                        (self.selected_index + visible).min(self.rows.len().saturating_sub(1));
                     self.scroll_to_selection();
                     self.dirty = true;
                     EventResult::Consumed
@@ -388,7 +400,9 @@ impl Widget for LibraryView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let highlight_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused());
+        let highlight_style = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::border_focused());
         let artist_style = Style::default().fg(Color::Rgb(245, 194, 231));
         let album_style = Style::default().fg(Color::Rgb(166, 227, 161));
         let track_style = Style::default().fg(Color::Rgb(205, 214, 244));
@@ -401,14 +415,21 @@ impl Widget for LibraryView {
                 let is_selected = global_idx == self.selected_index;
 
                 let expand_icon = if row.has_children {
-                    if self.expanded.contains(&row.key) { "▼ " } else { "▶ " }
+                    if self.expanded.contains(&row.key) {
+                        "▼ "
+                    } else {
+                        "▶ "
+                    }
                 } else {
                     "  "
                 };
 
                 let indent_str = " ".repeat(row.indent as usize);
                 let prefix = if is_selected { "" } else { " " };
-                let text = format!("{}{}{}{} {}", prefix, indent_str, expand_icon, prefix, row.label);
+                let text = format!(
+                    "{}{}{}{} {}",
+                    prefix, indent_str, expand_icon, prefix, row.label
+                );
 
                 let style = if is_selected {
                     highlight_style

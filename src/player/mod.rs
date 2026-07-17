@@ -56,6 +56,12 @@ pub struct StubAudioBackend {
     volume: f32,
 }
 
+impl Default for StubAudioBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StubAudioBackend {
     pub fn new() -> Self {
         Self {
@@ -369,7 +375,11 @@ mod tests {
     #[test]
     fn test_stop_preserves_queue_and_position() {
         let mut player = test_player();
-        let q = vec![PathBuf::from("/a.mp3"), PathBuf::from("/b.mp3"), PathBuf::from("/c.mp3")];
+        let q = vec![
+            PathBuf::from("/a.mp3"),
+            PathBuf::from("/b.mp3"),
+            PathBuf::from("/c.mp3"),
+        ];
         player.set_queue(q, 1);
         assert_eq!(player.queue_position, 1);
         assert_eq!(player.state.current_path.as_deref(), Some("/b.mp3"));

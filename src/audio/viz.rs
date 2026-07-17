@@ -148,7 +148,7 @@ where
             let mono = self.frame_sum / self.channels as f32;
             self.frame_sum = 0.0;
             self.frame_count = 0;
-            if self.frame_index % DECIMATE == 0 {
+            if self.frame_index.is_multiple_of(DECIMATE) {
                 self.viz.push(mono);
             }
             self.frame_index += 1;

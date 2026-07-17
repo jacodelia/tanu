@@ -3,8 +3,8 @@
 //! Provides fast, FTS5-backed search across the library.
 //! Supports filtering by artist, album, track, genre, year, and path.
 
-use crate::database::Database;
 use crate::core::id::TrackId;
+use crate::database::Database;
 
 /// Search scope — what fields are being searched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,9 +46,7 @@ impl SearchEngine {
         }
 
         // Escape FTS5 special characters
-        let escaped = query
-            .replace('"', "\"\"")
-            .replace('\'', "''");
+        let escaped = query.replace('"', "\"\"").replace('\'', "''");
 
         self.db.with_connection(|conn| {
             let mut stmt = conn.prepare(
@@ -56,7 +54,7 @@ impl SearchEngine {
                  JOIN tracks_fts fts ON t.rowid = fts.rowid
                  WHERE tracks_fts MATCH ?1
                  ORDER BY rank
-                 LIMIT 200"
+                 LIMIT 200",
             )?;
 
             let pattern = match scope {
@@ -68,12 +66,13 @@ impl SearchEngine {
                 _ => escaped,
             };
 
-            let ids: Vec<TrackId> = stmt.query_map([&pattern], |row| {
-                let _id_str: String = row.get(0)?;
-                Ok(TrackId::new())
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
+            let ids: Vec<TrackId> = stmt
+                .query_map([&pattern], |row| {
+                    let _id_str: String = row.get(0)?;
+                    Ok(TrackId::new())
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
 
             Ok(ids)
         })
@@ -92,15 +91,16 @@ impl SearchEngine {
                  title LIKE ?1 OR
                  artist_id IN (SELECT id FROM artists WHERE name LIKE ?1) OR
                  album_id IN (SELECT id FROM albums WHERE title LIKE ?1)
-                 LIMIT 200"
+                 LIMIT 200",
             )?;
 
-            let ids: Vec<TrackId> = stmt.query_map([&pattern], |row| {
-                let _id_str: String = row.get(0)?;
-                Ok(TrackId::new())
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
+            let ids: Vec<TrackId> = stmt
+                .query_map([&pattern], |row| {
+                    let _id_str: String = row.get(0)?;
+                    Ok(TrackId::new())
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
 
             Ok(ids)
         })

@@ -61,7 +61,13 @@ impl LyricsPlugin {
     }
 
     /// Try to load lyrics for a track.
-    fn load_lyrics(&mut self, ctx: &PluginContext, artist: &str, title: &str, audio_path: Option<&Path>) {
+    fn load_lyrics(
+        &mut self,
+        ctx: &PluginContext,
+        artist: &str,
+        title: &str,
+        audio_path: Option<&Path>,
+    ) {
         // 1. Try local .lrc file
         if let Some(path) = audio_path {
             if let Some(lyrics) = Self::find_local_lyrics(path, artist, title) {
@@ -102,7 +108,12 @@ impl LyricsPlugin {
         for ext in &["lrc", "txt"] {
             let candidate = parent.join(format!("{}.{}", stem, ext));
             if let Ok(content) = std::fs::read_to_string(&candidate) {
-                return Some(Self::parse_lrc(&content, _artist, _title, LyricsSource::LocalFile(candidate)));
+                return Some(Self::parse_lrc(
+                    &content,
+                    _artist,
+                    _title,
+                    LyricsSource::LocalFile(candidate),
+                ));
             }
         }
 
@@ -154,13 +165,24 @@ impl LyricsPlugin {
 
             if let Some(ref re) = re {
                 if let Some(caps) = re.captures(line) {
-                    let min: u64 = caps.get(1).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
-                    let sec: u64 = caps.get(2).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
+                    let min: u64 = caps
+                        .get(1)
+                        .and_then(|m| m.as_str().parse().ok())
+                        .unwrap_or(0);
+                    let sec: u64 = caps
+                        .get(2)
+                        .and_then(|m| m.as_str().parse().ok())
+                        .unwrap_or(0);
                     let ms_str = caps.get(3).map(|m| m.as_str()).unwrap_or("0");
                     let ms: u64 = ms_str.parse().unwrap_or(0);
-                    let text = caps.get(4).map(|m| m.as_str().to_string()).unwrap_or_default();
+                    let text = caps
+                        .get(4)
+                        .map(|m| m.as_str().to_string())
+                        .unwrap_or_default();
 
-                    let timestamp_ms = Some(min * 60000 + sec * 1000 + if ms_str.len() == 2 { ms * 10 } else { ms });
+                    let timestamp_ms = Some(
+                        min * 60000 + sec * 1000 + if ms_str.len() == 2 { ms * 10 } else { ms },
+                    );
 
                     lines.push(LyricsLine { timestamp_ms, text });
                     continue;
@@ -242,7 +264,9 @@ impl Plugin for LyricsPlugin {
                 }
                 true
             }
-            Event::Command(cmd) if cmd.starts_with("lyrics search ") || cmd.starts_with(":lyrics search ") => {
+            Event::Command(cmd)
+                if cmd.starts_with("lyrics search ") || cmd.starts_with(":lyrics search ") =>
+            {
                 let query = cmd
                     .strip_prefix("lyrics search ")
                     .or_else(|| cmd.strip_prefix(":lyrics search "))
@@ -257,7 +281,10 @@ impl Plugin for LyricsPlugin {
             }
             Event::PlayerStateChanged(state) => {
                 // Track changed? Load new lyrics
-                let track_id_str = state.track_id.map(|id| format!("{:?}", id)).unwrap_or_default();
+                let track_id_str = state
+                    .track_id
+                    .map(|id| format!("{:?}", id))
+                    .unwrap_or_default();
                 if self.current_track.as_deref() != Some(&track_id_str) {
                     self.current_track = Some(track_id_str.clone());
                     // In a full implementation, we'd look up artist+title from DB here
@@ -293,7 +320,12 @@ mod tests {
     #[test]
     fn test_parse_lrc_plain_text() {
         let content = "Just a line\nAnother line\nNo timestamps here";
-        let result = LyricsPlugin::parse_lrc(content, "A", "T", LyricsSource::LocalFile(PathBuf::from("/tmp/test.lrc")));
+        let result = LyricsPlugin::parse_lrc(
+            content,
+            "A",
+            "T",
+            LyricsSource::LocalFile(PathBuf::from("/tmp/test.lrc")),
+        );
         assert_eq!(result.lines.len(), 3);
         assert!(result.lines.iter().all(|l| l.timestamp_ms.is_none()));
     }

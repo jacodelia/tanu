@@ -30,6 +30,12 @@ pub struct EventRouter {
     listeners: Vec<EventSender>,
 }
 
+impl Default for EventRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventRouter {
     /// Creates a new router with its own internal channel pair.
     pub fn new() -> Self {

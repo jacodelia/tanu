@@ -4,14 +4,13 @@
 //! with foreign-key resolution.
 
 use rusqlite::{params, Connection};
-use uuid::Uuid;
 use std::path::Path;
+use uuid::Uuid;
 
 use crate::library::indexer::IndexedTrack;
 
 const TANU_NAMESPACE: Uuid = Uuid::from_bytes([
-    0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1,
-    0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
+    0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
 ]);
 
 /// Generate a deterministic UUID v5 from a seed string.
@@ -166,7 +165,9 @@ pub fn remove_stale_tracks(conn: &Connection, current_paths: &[String]) -> anyho
         return Ok(0);
     }
 
-    let placeholders: Vec<String> = current_paths.iter().enumerate()
+    let placeholders: Vec<String> = current_paths
+        .iter()
+        .enumerate()
         .map(|(i, _)| format!("?{}", i + 1))
         .collect();
 

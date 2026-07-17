@@ -25,7 +25,11 @@ pub fn read_replaygain(path: &Path) -> Option<ReplayGain> {
         match item.key() {
             lofty::tag::ItemKey::ReplayGainTrackGain => {
                 rg.track_gain_db = item.value().text().and_then(|s| {
-                    s.trim().trim_end_matches(" dB").trim_end_matches("dB").parse().ok()
+                    s.trim()
+                        .trim_end_matches(" dB")
+                        .trim_end_matches("dB")
+                        .parse()
+                        .ok()
                 });
             }
             lofty::tag::ItemKey::ReplayGainTrackPeak => {
@@ -33,7 +37,11 @@ pub fn read_replaygain(path: &Path) -> Option<ReplayGain> {
             }
             lofty::tag::ItemKey::ReplayGainAlbumGain => {
                 rg.album_gain_db = item.value().text().and_then(|s| {
-                    s.trim().trim_end_matches(" dB").trim_end_matches("dB").parse().ok()
+                    s.trim()
+                        .trim_end_matches(" dB")
+                        .trim_end_matches("dB")
+                        .parse()
+                        .ok()
                 });
             }
             lofty::tag::ItemKey::ReplayGainAlbumPeak => {

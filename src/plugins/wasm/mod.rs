@@ -75,8 +75,8 @@ impl WasmHost {
         if let Some(m) = self.modules.get(&key) {
             return Ok(m.clone());
         }
-        let bytes = std::fs::read(path)
-            .map_err(|e| WasmError::Generic(format!("read {path:?}: {e}")))?;
+        let bytes =
+            std::fs::read(path).map_err(|e| WasmError::Generic(format!("read {path:?}: {e}")))?;
         let module = wasmtime::Module::from_binary(&self.engine, &bytes)
             .map_err(|e| WasmError::Generic(format!("compile {path:?}: {e}")))?;
         self.modules.insert(key, module.clone());
@@ -100,10 +100,12 @@ impl WasmHost {
         let mut store = wasmtime::Store::new(&self.engine, host);
         let linker = wasmtime::Linker::<HostData>::new(&self.engine);
 
-        let instance = linker.instantiate(&mut store, module)
+        let instance = linker
+            .instantiate(&mut store, module)
             .map_err(|e| WasmError::Generic(format!("instantiate: {e}")))?;
 
-        let memory = instance.get_memory(&mut store, "memory")
+        let memory = instance
+            .get_memory(&mut store, "memory")
             .ok_or_else(|| WasmError::Generic("no memory export".into()))?;
         store.data_mut().memory = Some(memory);
 
@@ -159,16 +161,19 @@ impl WasmPlugin {
     }
 
     fn call_str(&mut self, name: &str) -> Result<String, WasmError> {
-        let func = self.instance
+        let func = self
+            .instance
             .get_typed_func::<(), (i32, i32)>(&mut self.store, name)
             .map_err(|e| WasmError::Generic(format!("{name}: {e}")))?;
-        let (p, l) = func.call(&mut self.store, ())
+        let (p, l) = func
+            .call(&mut self.store, ())
             .map_err(|e| WasmError::Generic(format!("{name}: {e}")))?;
         Ok(self.read_wasm_str(p, l))
     }
 
     fn call_void(&mut self, name: &str) -> Result<(), WasmError> {
-        let func = self.instance
+        let func = self
+            .instance
             .get_typed_func::<(), ()>(&mut self.store, name)
             .map_err(|e| WasmError::Generic(format!("{name}: {e}")))?;
         func.call(&mut self.store, ())
@@ -178,10 +183,18 @@ impl WasmPlugin {
 }
 
 impl Plugin for WasmPlugin {
-    fn name(&self) -> &str { &self.name_str }
-    fn version(&self) -> &str { "0.1.0" }
-    fn author(&self) -> &str { "wasm" }
-    fn description(&self) -> &str { "WASM plugin" }
+    fn name(&self) -> &str {
+        &self.name_str
+    }
+    fn version(&self) -> &str {
+        "0.1.0"
+    }
+    fn author(&self) -> &str {
+        "wasm"
+    }
+    fn description(&self) -> &str {
+        "WASM plugin"
+    }
 
     fn on_init(&mut self, _ctx: &PluginContext) {
         let _ = self.call_void("on_init");
@@ -194,7 +207,8 @@ impl Plugin for WasmPlugin {
             .get_typed_func::<(i32, i32), i32>(&mut self.store, "on_event")
             .ok()
             .and_then(|f| f.call(&mut self.store, (ptr, len)).ok())
-            .unwrap_or(0) != 0
+            .unwrap_or(0)
+            != 0
     }
 
     fn on_tick(&mut self, _ctx: &PluginContext) {
@@ -229,14 +243,20 @@ impl From<&Event> for EventWire {
             Event::SetVolume(v) => ("SetVolume", serde_json::json!({"vol": v})),
             Event::SetShuffle(b) => ("SetShuffle", serde_json::json!({"on": b})),
             Event::SetRepeat(r) => ("SetRepeat", serde_json::json!({"mode": format!("{r:?}")})),
-            Event::PlayerStateChanged(s) => ("PlayerStateChanged", serde_json::json!({
-                "playing": s.is_playing, "pos": s.position_secs, "dur": s.duration_secs, "vol": s.volume
-            })),
+            Event::PlayerStateChanged(s) => (
+                "PlayerStateChanged",
+                serde_json::json!({
+                    "playing": s.is_playing, "pos": s.position_secs, "dur": s.duration_secs, "vol": s.volume
+                }),
+            ),
             Event::ThemeChanged(n) => ("ThemeChanged", serde_json::json!({"name": n})),
             Event::LayoutChanged(n) => ("LayoutChanged", serde_json::json!({"name": n})),
             _ => ("Unknown", serde_json::Value::Null),
         };
-        Self { event_type: et.into(), payload: p }
+        Self {
+            event_type: et.into(),
+            payload: p,
+        }
     }
 }
 

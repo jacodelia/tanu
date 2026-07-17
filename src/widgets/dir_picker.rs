@@ -94,7 +94,11 @@ impl DirPicker {
     }
 
     fn open(&mut self, start: PathBuf) {
-        self.root = if start.is_dir() { start } else { dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")) };
+        self.root = if start.is_dir() {
+            start
+        } else {
+            dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
+        };
         self.selected_index = 0;
         self.scroll_offset = 0;
         self.rebuild();
@@ -105,7 +109,8 @@ impl DirPicker {
     /// Whether a file is allowed: only in file mode and matching an extension.
     fn ext_ok(&self, path: &Path) -> bool {
         !self.exts.is_empty()
-            && path.extension()
+            && path
+                .extension()
                 .and_then(|e| e.to_str())
                 .map(|e| self.exts.contains(&e.to_lowercase()))
                 .unwrap_or(false)
@@ -131,13 +136,25 @@ impl DirPicker {
                     if name.starts_with('.') {
                         return None;
                     }
-                    Some(Row { path, name, depth, expanded: false, is_dir, is_root_marker: false })
+                    Some(Row {
+                        path,
+                        name,
+                        depth,
+                        expanded: false,
+                        is_dir,
+                        is_root_marker: false,
+                    })
                 })
                 .collect(),
             Err(_) => Vec::new(),
         };
         // Dirs first, then files, each alphabetical.
-        items.sort_by(|a, b| a.is_dir.cmp(&b.is_dir).reverse().then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+        items.sort_by(|a, b| {
+            a.is_dir
+                .cmp(&b.is_dir)
+                .reverse()
+                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
         items
     }
 
@@ -225,14 +242,26 @@ impl DirPicker {
             if let Some(r) = self.rows.get(self.selected_index) {
                 if r.is_dir && !r.is_root_marker {
                     let expanded = r.expanded;
-                    if expanded { self.collapse(self.selected_index); } else { self.expand(self.selected_index); }
+                    if expanded {
+                        self.collapse(self.selected_index);
+                    } else {
+                        self.expand(self.selected_index);
+                    }
                     return EventResult::Consumed;
                 }
             }
         }
-        let path = self.rows.get(self.selected_index).map(|r| r.path.clone()).unwrap_or_else(|| self.root.clone());
+        let path = self
+            .rows
+            .get(self.selected_index)
+            .map(|r| r.path.clone())
+            .unwrap_or_else(|| self.root.clone());
         self.hide();
-        EventResult::Event(Event::Command(format!("{}:{}", self.prefix, path.to_string_lossy())))
+        EventResult::Event(Event::Command(format!(
+            "{}:{}",
+            self.prefix,
+            path.to_string_lossy()
+        )))
     }
 }
 
@@ -243,14 +272,30 @@ impl Default for DirPicker {
 }
 
 impl Widget for DirPicker {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty || self.visible }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.visible }
-    fn is_focusable(&self) -> bool { self.visible }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty || self.visible
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.visible
+    }
+    fn is_focusable(&self) -> bool {
+        self.visible
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if !self.visible {
@@ -258,33 +303,66 @@ impl Widget for DirPicker {
         }
         match event {
             Event::KeyPress(key) => match key.code {
-                KeyCode::Escape => { self.hide(); EventResult::Consumed }
+                KeyCode::Escape => {
+                    self.hide();
+                    EventResult::Consumed
+                }
                 KeyCode::Enter => self.confirm(),
-                KeyCode::Down | KeyCode::Char('j') => { self.move_selection(1); EventResult::Consumed }
-                KeyCode::Up | KeyCode::Char('k') => { self.move_selection(-1); EventResult::Consumed }
-                KeyCode::PageDown => { self.move_selection(self.list_rows.max(1) as isize); EventResult::Consumed }
-                KeyCode::PageUp => { self.move_selection(-(self.list_rows.max(1) as isize)); EventResult::Consumed }
-                KeyCode::Right | KeyCode::Char('l') => { self.expand(self.selected_index); EventResult::Consumed }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    self.move_selection(1);
+                    EventResult::Consumed
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.move_selection(-1);
+                    EventResult::Consumed
+                }
+                KeyCode::PageDown => {
+                    self.move_selection(self.list_rows.max(1) as isize);
+                    EventResult::Consumed
+                }
+                KeyCode::PageUp => {
+                    self.move_selection(-(self.list_rows.max(1) as isize));
+                    EventResult::Consumed
+                }
+                KeyCode::Right | KeyCode::Char('l') => {
+                    self.expand(self.selected_index);
+                    EventResult::Consumed
+                }
                 KeyCode::Left | KeyCode::Char('h') => {
                     match self.rows.get(self.selected_index) {
-                        Some(r) if r.expanded => { self.collapse(self.selected_index); }
-                        _ => { self.go_up(); }
+                        Some(r) if r.expanded => {
+                            self.collapse(self.selected_index);
+                        }
+                        _ => {
+                            self.go_up();
+                        }
                     }
                     EventResult::Consumed
                 }
-                KeyCode::Backspace => { self.go_up(); EventResult::Consumed }
+                KeyCode::Backspace => {
+                    self.go_up();
+                    EventResult::Consumed
+                }
                 _ => EventResult::Consumed, // modal: swallow the rest
             },
             Event::MouseAction(action) if action.is_click() => {
                 let (mx, my) = action.coords();
                 if let Some((ry, x0, x1)) = self.close_region {
-                    if my == ry && mx >= x0 && mx < x1 { self.hide(); return EventResult::Consumed; }
+                    if my == ry && mx >= x0 && mx < x1 {
+                        self.hide();
+                        return EventResult::Consumed;
+                    }
                 }
                 if let Some((ry, x0, x1)) = self.ok_region {
-                    if my == ry && mx >= x0 && mx < x1 { return self.confirm(); }
+                    if my == ry && mx >= x0 && mx < x1 {
+                        return self.confirm();
+                    }
                 }
                 if let Some((ry, x0, x1)) = self.cancel_region {
-                    if my == ry && mx >= x0 && mx < x1 { self.hide(); return EventResult::Consumed; }
+                    if my == ry && mx >= x0 && mx < x1 {
+                        self.hide();
+                        return EventResult::Consumed;
+                    }
                 }
                 // Click on a list row.
                 if my >= self.list_top && my < self.list_top + self.list_rows {
@@ -309,19 +387,37 @@ impl Widget for DirPicker {
         if !self.visible {
             return;
         }
-        let w = area.width.saturating_sub(6).min(70).max(20);
-        let h = area.height.saturating_sub(4).min(24).max(8);
+        let w = area.width.saturating_sub(6).clamp(20, 70);
+        let h = area.height.saturating_sub(4).clamp(8, 24);
         let x = area.x + area.width.saturating_sub(w) / 2;
         let y = area.y + area.height.saturating_sub(h) / 2;
-        let modal = Rect { x, y, width: w, height: h };
+        let modal = Rect {
+            x,
+            y,
+            width: w,
+            height: h,
+        };
         self.modal_rect = modal;
 
         let border = crate::theme::border_focused();
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border))
-            .title(Span::styled(format!(" {} ", self.title), Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
-            .title_top(Line::from(Span::styled("[x]", Style::default().fg(Color::Rgb(243, 139, 168)).add_modifier(Modifier::BOLD))).right_aligned())
+            .title(Span::styled(
+                format!(" {} ", self.title),
+                Style::default()
+                    .fg(crate::theme::primary())
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .title_top(
+                Line::from(Span::styled(
+                    "[x]",
+                    Style::default()
+                        .fg(Color::Rgb(243, 139, 168))
+                        .add_modifier(Modifier::BOLD),
+                ))
+                .right_aligned(),
+            )
             .title_bottom(Span::styled(
                 format!(" 🗀 {} ", self.root.to_string_lossy()),
                 Style::default().fg(Color::Rgb(249, 226, 175)),
@@ -345,9 +441,14 @@ impl Widget for DirPicker {
 
         let start = self.scroll_offset;
         let end = (start + self.list_rows as usize).min(self.rows.len());
-        let sel_style = Style::default().fg(Color::Rgb(30, 30, 46)).bg(border).add_modifier(Modifier::BOLD);
+        let sel_style = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(border)
+            .add_modifier(Modifier::BOLD);
         let dir_style = Style::default().fg(border);
-        let root_style = Style::default().fg(Color::Rgb(166, 227, 161)).add_modifier(Modifier::BOLD);
+        let root_style = Style::default()
+            .fg(Color::Rgb(166, 227, 161))
+            .add_modifier(Modifier::BOLD);
 
         let lines: Vec<Line> = self.rows[start..end]
             .iter()
@@ -357,15 +458,39 @@ impl Widget for DirPicker {
                 let selected = gi == self.selected_index;
                 let marker = if selected { "▶ " } else { "  " };
                 let indent = "  ".repeat(row.depth);
-                let glyph = if row.is_root_marker { "" } else if !row.is_dir { "♪ " } else if row.expanded { "▾ " } else { "▸ " };
-                let style = if selected { sel_style } else if row.is_root_marker { root_style } else if !row.is_dir { Style::default().fg(Color::Rgb(205, 214, 244)) } else { dir_style };
+                let glyph = if row.is_root_marker {
+                    ""
+                } else if !row.is_dir {
+                    "♪ "
+                } else if row.expanded {
+                    "▾ "
+                } else {
+                    "▸ "
+                };
+                let style = if selected {
+                    sel_style
+                } else if row.is_root_marker {
+                    root_style
+                } else if !row.is_dir {
+                    Style::default().fg(Color::Rgb(205, 214, 244))
+                } else {
+                    dir_style
+                };
                 Line::from(vec![
                     Span::styled(marker.to_string(), Style::default().fg(border)),
                     Span::styled(format!("{}{}{}", indent, glyph, row.name), style),
                 ])
             })
             .collect();
-        frame.render_widget(Paragraph::new(lines), Rect { x: inner.x, y: inner.y, width: inner.width, height: self.list_rows });
+        frame.render_widget(
+            Paragraph::new(lines),
+            Rect {
+                x: inner.x,
+                y: inner.y,
+                width: inner.width,
+                height: self.list_rows,
+            },
+        );
 
         // Button row.
         let btn_y = inner.y + inner.height - 1;
@@ -379,13 +504,30 @@ impl Widget for DirPicker {
         self.ok_region = Some((btn_y, bx, bx + ok_w));
         self.cancel_region = Some((btn_y, bx + ok_w + gap, bx + ok_w + gap + cancel_w));
         let btn_line = Line::from(vec![
-            Span::styled(ok, Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(166, 227, 161)).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                ok,
+                Style::default()
+                    .fg(Color::Rgb(30, 30, 46))
+                    .bg(Color::Rgb(166, 227, 161))
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::raw("  "),
-            Span::styled(cancel, Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(243, 139, 168)).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                cancel,
+                Style::default()
+                    .fg(Color::Rgb(30, 30, 46))
+                    .bg(Color::Rgb(243, 139, 168))
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]);
         frame.render_widget(
             Paragraph::new(btn_line).alignment(ratatui::layout::Alignment::Right),
-            Rect { x: inner.x, y: btn_y, width: inner.width, height: 1 },
+            Rect {
+                x: inner.x,
+                y: btn_y,
+                width: inner.width,
+                height: 1,
+            },
         );
     }
 }
@@ -412,7 +554,9 @@ mod tests {
         // Confirm on the root marker → pick_dir:<dir>.
         p.selected_index = 0;
         match p.confirm() {
-            EventResult::Event(Event::Command(c)) => assert_eq!(c, format!("pick_dir:{}", dir.to_string_lossy())),
+            EventResult::Event(Event::Command(c)) => {
+                assert_eq!(c, format!("pick_dir:{}", dir.to_string_lossy()))
+            }
             _ => panic!("expected pick_dir command"),
         }
         let _ = fs::remove_dir_all(&dir);

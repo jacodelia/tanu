@@ -34,6 +34,12 @@ pub struct Popup {
     close_region: Option<(u16, u16, u16)>,
 }
 
+impl Default for Popup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Popup {
     pub fn new() -> Self {
         Self {
@@ -73,7 +79,12 @@ impl Popup {
     }
 
     /// Large About popup: ASCII art scaled to fit, plus a caption message.
-    pub fn show_about(&mut self, title: impl Into<String>, message: impl Into<String>, art: &'static str) {
+    pub fn show_about(
+        &mut self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        art: &'static str,
+    ) {
         self.popup_type = PopupType::Info;
         self.title = title.into();
         self.message = message.into();
@@ -137,13 +148,24 @@ impl Popup {
     fn popup_rect(&self, screen: Rect) -> Rect {
         let (w, h) = if self.art.is_some() {
             // About: tall but narrow — cap the width so it doesn't span the screen.
-            (60u16.min(screen.width.saturating_sub(4)), screen.height.saturating_sub(4))
+            (
+                60u16.min(screen.width.saturating_sub(4)),
+                screen.height.saturating_sub(4),
+            )
         } else {
-            (50u16.min(screen.width.saturating_sub(4)), 10u16.min(screen.height.saturating_sub(4)))
+            (
+                50u16.min(screen.width.saturating_sub(4)),
+                10u16.min(screen.height.saturating_sub(4)),
+            )
         };
         let x = screen.width.saturating_sub(w) / 2;
         let y = screen.height.saturating_sub(h) / 2;
-        Rect { x, y, width: w, height: h }
+        Rect {
+            x,
+            y,
+            width: w,
+            height: h,
+        }
     }
 }
 
@@ -155,7 +177,12 @@ fn scale_art(art: &str, avail_w: u16, avail_h: u16) -> Vec<String> {
         return Vec::new();
     }
     let art_h = rows.len();
-    let art_w = rows.iter().map(|r| r.chars().count()).max().unwrap_or(0).max(1);
+    let art_w = rows
+        .iter()
+        .map(|r| r.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(1);
     let step = (art_w.div_ceil(avail_w as usize))
         .max(art_h.div_ceil(avail_h as usize))
         .max(1);
@@ -178,14 +205,30 @@ fn scale_art(art: &str, avail_w: u16, avail_h: u16) -> Vec<String> {
 }
 
 impl Widget for Popup {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty || self.visible }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
-    fn is_focusable(&self) -> bool { self.visible }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty || self.visible
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+    fn is_focusable(&self) -> bool {
+        self.visible
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         if !self.visible {
@@ -202,7 +245,10 @@ impl Widget for Popup {
                     self.hide();
                     EventResult::Consumed
                 }
-                KeyCode::Enter if self.popup_type == PopupType::Info || self.popup_type == PopupType::Error => {
+                KeyCode::Enter
+                    if self.popup_type == PopupType::Info
+                        || self.popup_type == PopupType::Error =>
+                {
                     if let Some(cmd) = self.on_confirm.take() {
                         self.hide();
                         return EventResult::Event(Event::Command(cmd));
@@ -282,10 +328,15 @@ impl Widget for Popup {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
             .title(self.title.clone())
-            .title_top(Line::from(Span::styled(
-                close,
-                Style::default().fg(Color::Rgb(243, 139, 168)).add_modifier(ratatui::style::Modifier::BOLD),
-            )).right_aligned())
+            .title_top(
+                Line::from(Span::styled(
+                    close,
+                    Style::default()
+                        .fg(Color::Rgb(243, 139, 168))
+                        .add_modifier(ratatui::style::Modifier::BOLD),
+                ))
+                .right_aligned(),
+            )
             .style(Style::default().bg(Color::Rgb(30, 30, 46)));
 
         let mut lines: Vec<Line> = Vec::new();
@@ -297,7 +348,10 @@ impl Widget for Popup {
             let inner_h = popup_rect.height.saturating_sub(2);
             let art_h = inner_h.saturating_sub(4); // caption + copyright + hint + blank
             for row in scale_art(art, inner_w, art_h) {
-                lines.push(Line::from(Span::styled(row, Style::default().fg(crate::theme::primary()))));
+                lines.push(Line::from(Span::styled(
+                    row,
+                    Style::default().fg(crate::theme::primary()),
+                )));
             }
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
@@ -312,7 +366,9 @@ impl Widget for Popup {
                 "Press Enter or Esc to close",
                 Style::default().fg(Color::Rgb(108, 112, 134)),
             )));
-            let paragraph = Paragraph::new(lines).block(block).alignment(Alignment::Left);
+            let paragraph = Paragraph::new(lines)
+                .block(block)
+                .alignment(Alignment::Left);
             frame.render_widget(Clear, popup_rect);
             frame.render_widget(paragraph, popup_rect);
             return;

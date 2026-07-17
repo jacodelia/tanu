@@ -143,7 +143,13 @@ impl Plugin for DiscordPresence {
 
                 let new_state = PresenceState {
                     artist: String::new(), // populated by external track metadata
-                    track: format!("Track {}", state_data.track_id.map(|id| format!("{:?}", id)).unwrap_or_default()),
+                    track: format!(
+                        "Track {}",
+                        state_data
+                            .track_id
+                            .map(|id| format!("{:?}", id))
+                            .unwrap_or_default()
+                    ),
                     album: String::new(),
                     is_playing: state_data.is_playing,
                     position_secs: state_data.position_secs,

@@ -35,8 +35,7 @@ pub fn decode_file(path: &Path) -> anyhow::Result<DecodedAudio> {
     let meta_opts = MetadataOptions::default();
     let fmt_opts = FormatOptions::default();
 
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &fmt_opts, &meta_opts)?;
+    let probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
 
     let mut format = probed.format;
 
@@ -67,10 +66,7 @@ pub fn decode_file(path: &Path) -> anyhow::Result<DecodedAudio> {
         if spec.is_none() {
             spec = Some(*decoded.spec());
             let s = spec.as_ref().unwrap();
-            sample_buf = Some(SampleBuffer::<f32>::new(
-                decoded.capacity() as u64,
-                *s,
-            ));
+            sample_buf = Some(SampleBuffer::<f32>::new(decoded.capacity() as u64, *s));
         }
 
         if let Some(ref mut buf) = sample_buf {

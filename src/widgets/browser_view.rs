@@ -18,7 +18,9 @@ use crate::events::{Event, KeyCode, MouseAction};
 use crate::widgets::{EventResult, Widget};
 
 /// Playable media extensions (lowercase).
-const MEDIA_EXTS: &[&str] = &["mp3", "flac", "ogg", "opus", "wav", "m4a", "aac", "wma", "mid", "midi"];
+const MEDIA_EXTS: &[&str] = &[
+    "mp3", "flac", "ogg", "opus", "wav", "m4a", "aac", "wma", "mid", "midi",
+];
 
 fn is_media(path: &Path) -> bool {
     path.extension()
@@ -146,7 +148,13 @@ impl BrowserView {
                     if !needle.is_empty() && !name.to_lowercase().contains(&needle) {
                         return None;
                     }
-                    Some(Row { path, name, is_dir, depth, expanded: false })
+                    Some(Row {
+                        path,
+                        name,
+                        is_dir,
+                        depth,
+                        expanded: false,
+                    })
                 })
                 .collect(),
             Err(_) => Vec::new(),
@@ -239,7 +247,10 @@ impl BrowserView {
             .filter(|r| !r.is_dir && r.path.parent() == dir)
             .collect();
         let index = files.iter().position(|r| r.path == sel.path)?;
-        let paths = files.iter().map(|r| r.path.to_string_lossy().to_string()).collect();
+        let paths = files
+            .iter()
+            .map(|r| r.path.to_string_lossy().to_string())
+            .collect();
         Some((paths, index))
     }
 
@@ -287,13 +298,27 @@ impl BrowserView {
 }
 
 impl Widget for BrowserView {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         let key = match event {
@@ -312,9 +337,28 @@ impl Widget for BrowserView {
                     self.searching = false;
                     return EventResult::Event(Event::ModeChanged(crate::events::UiMode::Normal));
                 }
-                KeyCode::Backspace => { self.filter.pop(); self.rebuild(); self.selected_index = 0; self.scroll_offset = 0; self.dirty = true; return EventResult::Consumed; }
-                KeyCode::Char(c) => { self.filter.push(c); self.rebuild(); self.selected_index = 0; self.scroll_offset = 0; self.dirty = true; return EventResult::Consumed; }
-                KeyCode::Space => { self.filter.push(' '); self.rebuild(); self.dirty = true; return EventResult::Consumed; }
+                KeyCode::Backspace => {
+                    self.filter.pop();
+                    self.rebuild();
+                    self.selected_index = 0;
+                    self.scroll_offset = 0;
+                    self.dirty = true;
+                    return EventResult::Consumed;
+                }
+                KeyCode::Char(c) => {
+                    self.filter.push(c);
+                    self.rebuild();
+                    self.selected_index = 0;
+                    self.scroll_offset = 0;
+                    self.dirty = true;
+                    return EventResult::Consumed;
+                }
+                KeyCode::Space => {
+                    self.filter.push(' ');
+                    self.rebuild();
+                    self.dirty = true;
+                    return EventResult::Consumed;
+                }
                 _ => return EventResult::Consumed,
             }
         }
@@ -330,25 +374,52 @@ impl Widget for BrowserView {
         }
 
         match key.code {
-            KeyCode::Down | KeyCode::Char('j') => { self.move_selection(1); EventResult::Consumed }
-            KeyCode::Up | KeyCode::Char('k') => { self.move_selection(-1); EventResult::Consumed }
-            KeyCode::PageDown => { self.move_selection(self.visible_rows().max(1) as isize); EventResult::Consumed }
-            KeyCode::PageUp => { self.move_selection(-(self.visible_rows().max(1) as isize)); EventResult::Consumed }
-            KeyCode::Enter => self.activate(),
-            KeyCode::Right | KeyCode::Char('l') => {
-                match self.rows.get(self.selected_index) {
-                    Some(r) if r.is_dir && !r.expanded => { self.expand(self.selected_index); EventResult::Consumed }
-                    Some(r) if r.is_dir => { self.move_selection(1); EventResult::Consumed }
-                    _ => self.activate(),
-                }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.move_selection(1);
+                EventResult::Consumed
             }
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.move_selection(-1);
+                EventResult::Consumed
+            }
+            KeyCode::PageDown => {
+                self.move_selection(self.visible_rows().max(1) as isize);
+                EventResult::Consumed
+            }
+            KeyCode::PageUp => {
+                self.move_selection(-(self.visible_rows().max(1) as isize));
+                EventResult::Consumed
+            }
+            KeyCode::Enter => self.activate(),
+            KeyCode::Right | KeyCode::Char('l') => match self.rows.get(self.selected_index) {
+                Some(r) if r.is_dir && !r.expanded => {
+                    self.expand(self.selected_index);
+                    EventResult::Consumed
+                }
+                Some(r) if r.is_dir => {
+                    self.move_selection(1);
+                    EventResult::Consumed
+                }
+                _ => self.activate(),
+            },
             KeyCode::Left | KeyCode::Char('h') | KeyCode::Backspace => {
                 match self.rows.get(self.selected_index) {
-                    Some(r) if r.is_dir && r.expanded => { self.collapse(self.selected_index); EventResult::Consumed }
-                    _ => { self.select_parent(); EventResult::Consumed }
+                    Some(r) if r.is_dir && r.expanded => {
+                        self.collapse(self.selected_index);
+                        EventResult::Consumed
+                    }
+                    _ => {
+                        self.select_parent();
+                        EventResult::Consumed
+                    }
                 }
             }
-            KeyCode::Home | KeyCode::Char('g') => { self.selected_index = 0; self.scroll_offset = 0; self.dirty = true; EventResult::Consumed }
+            KeyCode::Home | KeyCode::Char('g') => {
+                self.selected_index = 0;
+                self.scroll_offset = 0;
+                self.dirty = true;
+                EventResult::Consumed
+            }
             KeyCode::End | KeyCode::Char('G') => {
                 if !self.rows.is_empty() {
                     self.selected_index = self.rows.len() - 1;
@@ -375,8 +446,14 @@ impl Widget for BrowserView {
                 EventResult::NotConsumed
             }
             MouseAction::DoubleClick(..) => self.activate(),
-            MouseAction::ScrollUp(..) => { self.move_selection(-3); EventResult::Consumed }
-            MouseAction::ScrollDown(..) => { self.move_selection(3); EventResult::Consumed }
+            MouseAction::ScrollUp(..) => {
+                self.move_selection(-3);
+                EventResult::Consumed
+            }
+            MouseAction::ScrollDown(..) => {
+                self.move_selection(3);
+                EventResult::Consumed
+            }
             _ => EventResult::NotConsumed,
         }
     }
@@ -391,12 +468,24 @@ impl Widget for BrowserView {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(title, Style::default().fg(border_color).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(
+                title,
+                Style::default()
+                    .fg(border_color)
+                    .add_modifier(Modifier::BOLD),
+            ))
             .title_bottom(Span::styled(
                 if self.searching || !self.filter.is_empty() {
                     format!(" /{}▏ [{}]", self.filter, self.rows.len())
                 } else {
-                    format!(" {}/{} {}", self.selected_index.saturating_add(1).min(self.rows.len().max(1)), self.rows.len(), if self.show_hidden { "· hidden" } else { "" })
+                    format!(
+                        " {}/{} {}",
+                        self.selected_index
+                            .saturating_add(1)
+                            .min(self.rows.len().max(1)),
+                        self.rows.len(),
+                        if self.show_hidden { "· hidden" } else { "" }
+                    )
                 },
                 Style::default().fg(Color::Rgb(249, 226, 175)),
             ));
@@ -409,10 +498,19 @@ impl Widget for BrowserView {
         let start = self.scroll_offset;
         let end = (start + visible).min(self.rows.len());
 
-        let marker_style = Style::default().fg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
-        let sel_dir = Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
-        let sel_file = Style::default().fg(Color::Rgb(30, 30, 46)).bg(Color::Rgb(166, 227, 161));
-        let dir_style = Style::default().fg(crate::theme::border_focused()).add_modifier(Modifier::BOLD);
+        let marker_style = Style::default()
+            .fg(crate::theme::border_focused())
+            .add_modifier(Modifier::BOLD);
+        let sel_dir = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(crate::theme::border_focused())
+            .add_modifier(Modifier::BOLD);
+        let sel_file = Style::default()
+            .fg(Color::Rgb(30, 30, 46))
+            .bg(Color::Rgb(166, 227, 161));
+        let dir_style = Style::default()
+            .fg(crate::theme::border_focused())
+            .add_modifier(Modifier::BOLD);
         let file_style = Style::default().fg(Color::Rgb(205, 214, 244));
 
         let lines: Vec<Line> = self.rows[start..end]
@@ -424,12 +522,20 @@ impl Widget for BrowserView {
                 let marker = if selected { "▶" } else { " " };
                 let indent = "  ".repeat(row.depth);
                 let glyph = if row.is_dir {
-                    if row.expanded { "▾ " } else { "▸ " }
+                    if row.expanded {
+                        "▾ "
+                    } else {
+                        "▸ "
+                    }
                 } else {
                     "♪ "
                 };
                 let style = if selected {
-                    if row.is_dir { sel_dir } else { sel_file }
+                    if row.is_dir {
+                        sel_dir
+                    } else {
+                        sel_file
+                    }
                 } else if row.is_dir {
                     dir_style
                 } else {
@@ -445,8 +551,14 @@ impl Widget for BrowserView {
         frame.render_widget(Paragraph::new(lines), inner);
     }
 
-    fn on_focus(&mut self) { self.focused = true; self.dirty = true; }
-    fn on_blur(&mut self) { self.focused = false; self.dirty = true; }
+    fn on_focus(&mut self) {
+        self.focused = true;
+        self.dirty = true;
+    }
+    fn on_blur(&mut self) {
+        self.focused = false;
+        self.dirty = true;
+    }
 }
 
 #[cfg(test)]
@@ -470,7 +582,10 @@ mod tests {
         // Expand the subdir in place.
         let sub_idx = b.rows.iter().position(|r| r.is_dir).unwrap();
         b.expand(sub_idx);
-        assert!(b.rows.iter().any(|r| r.name == "inner.flac" && r.depth == 1));
+        assert!(b
+            .rows
+            .iter()
+            .any(|r| r.name == "inner.flac" && r.depth == 1));
 
         let _ = fs::remove_dir_all(&dir);
     }

@@ -84,9 +84,15 @@ mod tests {
     struct TestCommand;
 
     impl Command for TestCommand {
-        fn name(&self) -> &str { "test" }
-        fn description(&self) -> &str { "A test command" }
-        fn usage(&self) -> &str { ":test <arg>" }
+        fn name(&self) -> &str {
+            "test"
+        }
+        fn description(&self) -> &str {
+            "A test command"
+        }
+        fn usage(&self) -> &str {
+            ":test <arg>"
+        }
         fn execute(&self, args: &[String]) -> anyhow::Result<()> {
             let _ = args;
             Ok(())
@@ -96,7 +102,9 @@ mod tests {
     #[test]
     fn test_registry_find() {
         let mut registry = CommandRegistry::new();
-        registry.register("test".to_string(), Box::new(TestCommand)).unwrap();
+        registry
+            .register("test".to_string(), Box::new(TestCommand))
+            .unwrap();
         assert!(registry.find("test").is_some());
         assert!(registry.find("unknown").is_none());
     }
@@ -104,7 +112,9 @@ mod tests {
     #[test]
     fn test_completions() {
         let mut registry = CommandRegistry::new();
-        registry.register("test".to_string(), Box::new(TestCommand)).unwrap();
+        registry
+            .register("test".to_string(), Box::new(TestCommand))
+            .unwrap();
         let completions = registry.completions("te");
         assert!(!completions.is_empty());
     }
@@ -112,8 +122,12 @@ mod tests {
     #[test]
     fn test_duplicate_register_fails() {
         let mut registry = CommandRegistry::new();
-        registry.register("test".to_string(), Box::new(TestCommand)).unwrap();
-        assert!(registry.register("test".to_string(), Box::new(TestCommand)).is_err());
+        registry
+            .register("test".to_string(), Box::new(TestCommand))
+            .unwrap();
+        assert!(registry
+            .register("test".to_string(), Box::new(TestCommand))
+            .is_err());
     }
 
     #[test]

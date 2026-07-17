@@ -71,13 +71,27 @@ impl Equalizer {
 }
 
 impl Widget for Equalizer {
-    fn id(&self) -> WidgetId { self.id }
-    fn rect(&self) -> Rect { self.rect }
-    fn set_rect(&mut self, rect: Rect) { self.rect = rect; }
-    fn is_dirty(&self) -> bool { self.dirty }
-    fn mark_dirty(&mut self) { self.dirty = true; }
-    fn mark_clean(&mut self) { self.dirty = false; }
-    fn is_focused(&self) -> bool { self.focused }
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         let key = match event {
@@ -85,13 +99,42 @@ impl Widget for Equalizer {
             _ => return EventResult::NotConsumed,
         };
         match key.code {
-            KeyCode::Left | KeyCode::Char('h') => { if self.selected > 0 { self.selected -= 1; self.dirty = true; } EventResult::Consumed }
-            KeyCode::Right | KeyCode::Char('l') => { if self.selected + 1 < EQ_BANDS { self.selected += 1; self.dirty = true; } EventResult::Consumed }
-            KeyCode::Up | KeyCode::Char('k') => { self.eq.adjust_gain(self.selected, 1.0); self.dirty = true; EventResult::Consumed }
-            KeyCode::Down | KeyCode::Char('j') => { self.eq.adjust_gain(self.selected, -1.0); self.dirty = true; EventResult::Consumed }
+            KeyCode::Left | KeyCode::Char('h') => {
+                if self.selected > 0 {
+                    self.selected -= 1;
+                    self.dirty = true;
+                }
+                EventResult::Consumed
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                if self.selected + 1 < EQ_BANDS {
+                    self.selected += 1;
+                    self.dirty = true;
+                }
+                EventResult::Consumed
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.eq.adjust_gain(self.selected, 1.0);
+                self.dirty = true;
+                EventResult::Consumed
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.eq.adjust_gain(self.selected, -1.0);
+                self.dirty = true;
+                EventResult::Consumed
+            }
             KeyCode::Char('p') => EventResult::Event(Event::Command("eq_presets".into())),
-            KeyCode::Char('r') => { self.preset_idx = 0; self.eq.set_all([0.0; EQ_BANDS], 0.0); self.dirty = true; EventResult::Consumed }
-            KeyCode::Char('e') => { self.eq.toggle_enabled(); self.dirty = true; EventResult::Consumed }
+            KeyCode::Char('r') => {
+                self.preset_idx = 0;
+                self.eq.set_all([0.0; EQ_BANDS], 0.0);
+                self.dirty = true;
+                EventResult::Consumed
+            }
+            KeyCode::Char('e') => {
+                self.eq.toggle_enabled();
+                self.dirty = true;
+                EventResult::Consumed
+            }
             _ => EventResult::NotConsumed,
         }
     }
@@ -114,7 +157,11 @@ impl Widget for Equalizer {
             // Wheel over a band nudges just that band's gain.
             MouseAction::ScrollUp(..) | MouseAction::ScrollDown(..) => {
                 if let Some(band) = self.band_x.iter().position(|(s, e)| x >= *s && x < *e) {
-                    let step = if matches!(action, MouseAction::ScrollUp(..)) { 1.0 } else { -1.0 };
+                    let step = if matches!(action, MouseAction::ScrollUp(..)) {
+                        1.0
+                    } else {
+                        -1.0
+                    };
                     self.selected = band;
                     self.eq.adjust_gain(band, step);
                     self.dirty = true;
@@ -128,21 +175,52 @@ impl Widget for Equalizer {
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let (gains, _preamp, enabled) = self.eq.snapshot();
-        let border_color = if self.focused { crate::theme::border_focused() } else { crate::theme::border() };
+        let border_color = if self.focused {
+            crate::theme::border_focused()
+        } else {
+            crate::theme::border()
+        };
         // Clickable preset button in the title bar (opens the preset modal).
-        let title = format!(" ≣ {} ▾ · {} ", PRESETS[self.preset_idx].0, if enabled { "on" } else { "OFF" });
+        let title = format!(
+            " ≣ {} ▾ · {} ",
+            PRESETS[self.preset_idx].0,
+            if enabled { "on" } else { "OFF" }
+        );
         // Title sits on the top border starting at local col 1 (after the corner).
         self.preset_btn = (0, 1, 1 + title.chars().count() as u16);
         // Numeric monitor of the band being moved: freq + signed dB.
         let f = EQ_FREQS[self.selected];
-        let freq_label = if f >= 1000.0 { format!("{:.0}k", f / 1000.0) } else { format!("{:.0}", f) };
+        let freq_label = if f >= 1000.0 {
+            format!("{:.0}k", f / 1000.0)
+        } else {
+            format!("{:.0}", f)
+        };
         let monitor = format!(" {}Hz {:+.0}dB ", freq_label, gains[self.selected]);
-        let mon_color = if gains[self.selected] >= 0.0 { Color::Rgb(166, 227, 161) } else { Color::Rgb(243, 139, 168) };
+        let mon_color = if gains[self.selected] >= 0.0 {
+            Color::Rgb(166, 227, 161)
+        } else {
+            Color::Rgb(243, 139, 168)
+        };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(title, Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
-            .title_top(Line::from(Span::styled(monitor, Style::default().fg(Color::Rgb(30, 30, 46)).bg(mon_color).add_modifier(Modifier::BOLD))).right_aligned())
+            .title(Span::styled(
+                title,
+                Style::default()
+                    .fg(Color::Rgb(30, 30, 46))
+                    .bg(crate::theme::primary())
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .title_top(
+                Line::from(Span::styled(
+                    monitor,
+                    Style::default()
+                        .fg(Color::Rgb(30, 30, 46))
+                        .bg(mon_color)
+                        .add_modifier(Modifier::BOLD),
+                ))
+                .right_aligned(),
+            )
             .title_bottom(Span::styled(
                 " ←→ band · ↑↓ dB · p presets · r flat · e on/off ",
                 Style::default().fg(Color::Rgb(108, 112, 134)),
@@ -157,7 +235,11 @@ impl Widget for Equalizer {
         self.band_x.clear();
         let w = inner.width as usize;
         let label_row = inner.height >= 4;
-        let track_h = if label_row { inner.height - 1 } else { inner.height } as usize;
+        let track_h = if label_row {
+            inner.height - 1
+        } else {
+            inner.height
+        } as usize;
         self.track_y = (inner.y - area.y, inner.y - area.y + track_h as u16);
 
         for b in 0..EQ_BANDS {
@@ -182,7 +264,14 @@ impl Widget for Equalizer {
                 let band_mid = (band * w / EQ_BANDS + (band + 1) * w / EQ_BANDS) / 2;
                 let kr = knob_row(gains[band.min(EQ_BANDS - 1)]);
                 let (ch, mut color) = if col == band_mid && row == kr {
-                    ('█', if gains[band] >= 0.0 { Color::Rgb(166, 227, 161) } else { Color::Rgb(243, 139, 168) })
+                    (
+                        '█',
+                        if gains[band] >= 0.0 {
+                            Color::Rgb(166, 227, 161)
+                        } else {
+                            Color::Rgb(243, 139, 168)
+                        },
+                    )
                 } else if row == center {
                     ('─', crate::theme::border())
                 } else if col == band_mid {
@@ -191,7 +280,11 @@ impl Widget for Equalizer {
                     (' ', Color::Rgb(30, 30, 46))
                 };
                 if is_selected && ch != ' ' {
-                    color = if ch == '█' { color } else { crate::theme::border_focused() };
+                    color = if ch == '█' {
+                        color
+                    } else {
+                        crate::theme::border_focused()
+                    };
                 }
                 let mut st = Style::default().fg(color);
                 if is_selected {
@@ -205,10 +298,13 @@ impl Widget for Equalizer {
         if label_row {
             let mut spans: Vec<Span> = Vec::with_capacity(w);
             let mut placed = vec![' '; w];
-            for b in 0..EQ_BANDS {
+            for (b, &f) in EQ_FREQS.iter().enumerate() {
                 let mid = (b * w / EQ_BANDS + (b + 1) * w / EQ_BANDS) / 2;
-                let f = EQ_FREQS[b];
-                let s = if f >= 1000.0 { format!("{:.0}k", f / 1000.0) } else { format!("{:.0}", f) };
+                let s = if f >= 1000.0 {
+                    format!("{:.0}k", f / 1000.0)
+                } else {
+                    format!("{:.0}", f)
+                };
                 let start = mid.saturating_sub(s.len() / 2);
                 for (i, c) in s.chars().enumerate() {
                     if start + i < w {
@@ -218,7 +314,11 @@ impl Widget for Equalizer {
             }
             for (col, c) in placed.into_iter().enumerate() {
                 let band = (col * EQ_BANDS) / w;
-                let color = if band == self.selected { crate::theme::border_focused() } else { Color::Rgb(108, 112, 134) };
+                let color = if band == self.selected {
+                    crate::theme::border_focused()
+                } else {
+                    Color::Rgb(108, 112, 134)
+                };
                 spans.push(Span::styled(c.to_string(), Style::default().fg(color)));
             }
             lines.push(Line::from(spans));
@@ -227,8 +327,14 @@ impl Widget for Equalizer {
         frame.render_widget(Paragraph::new(lines), inner);
     }
 
-    fn on_focus(&mut self) { self.focused = true; self.dirty = true; }
-    fn on_blur(&mut self) { self.focused = false; self.dirty = true; }
+    fn on_focus(&mut self) {
+        self.focused = true;
+        self.dirty = true;
+    }
+    fn on_blur(&mut self) {
+        self.focused = false;
+        self.dirty = true;
+    }
 }
 
 #[cfg(test)]

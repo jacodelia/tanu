@@ -25,6 +25,12 @@ pub struct CommandBar {
     completion_index: usize,
 }
 
+impl Default for CommandBar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandBar {
     pub fn new() -> Self {
         Self {

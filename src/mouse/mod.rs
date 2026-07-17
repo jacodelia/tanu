@@ -33,18 +33,15 @@ impl MouseHandler {
     }
 
     /// Process a raw mouse press and return the appropriate action.
-    pub fn on_press(
-        &mut self,
-        button: crate::events::MouseButton,
-        x: u16,
-        y: u16,
-    ) -> MouseAction {
+    pub fn on_press(&mut self, button: crate::events::MouseButton, x: u16, y: u16) -> MouseAction {
         let now = Instant::now();
 
         // Detect double-click
-        if let (Some(last_pos), Some(last_time), Some(last_btn)) =
-            (self.last_click_position, self.last_click_time, self.last_click_button)
-        {
+        if let (Some(last_pos), Some(last_time), Some(last_btn)) = (
+            self.last_click_position,
+            self.last_click_time,
+            self.last_click_button,
+        ) {
             if last_pos == (x, y)
                 && last_btn == button
                 && now.duration_since(last_time) < self.double_click_threshold
@@ -135,7 +132,10 @@ mod tests {
     fn test_single_click() {
         let mut handler = MouseHandler::new();
         let action = handler.on_press(MouseButton::Left, 10, 20);
-        assert!(matches!(action, MouseAction::Press(MouseButton::Left, 10, 20)));
+        assert!(matches!(
+            action,
+            MouseAction::Press(MouseButton::Left, 10, 20)
+        ));
     }
 
     #[test]
@@ -144,7 +144,10 @@ mod tests {
         handler.double_click_threshold = Duration::from_millis(1000);
         handler.on_press(MouseButton::Left, 5, 5);
         let action = handler.on_press(MouseButton::Left, 5, 5);
-        assert!(matches!(action, MouseAction::DoubleClick(MouseButton::Left, 5, 5)));
+        assert!(matches!(
+            action,
+            MouseAction::DoubleClick(MouseButton::Left, 5, 5)
+        ));
     }
 
     #[test]

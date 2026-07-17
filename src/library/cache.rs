@@ -21,9 +21,9 @@ pub struct MetadataCache {
 impl MetadataCache {
     pub fn new(capacity: usize) -> Self {
         Self {
-            cache: LruCache::new(NonZeroUsize::new(capacity).unwrap_or(
-                NonZeroUsize::new(DEFAULT_CAPACITY).unwrap(),
-            )),
+            cache: LruCache::new(
+                NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::new(DEFAULT_CAPACITY).unwrap()),
+            ),
         }
     }
 
@@ -66,6 +66,11 @@ impl MetadataCache {
     /// Number of cached entries.
     pub fn len(&self) -> usize {
         self.cache.len()
+    }
+
+    /// Whether the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.cache.len() == 0
     }
 }
 

@@ -20,9 +20,21 @@ pub struct WidgetId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ComponentId(Uuid);
 
+impl Default for TrackId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TrackId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl Default for AlbumId {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -32,9 +44,21 @@ impl AlbumId {
     }
 }
 
+impl Default for ArtistId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ArtistId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl Default for PlaylistId {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -44,9 +68,21 @@ impl PlaylistId {
     }
 }
 
+impl Default for WidgetId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WidgetId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl Default for ComponentId {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

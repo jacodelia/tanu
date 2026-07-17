@@ -139,30 +139,44 @@ See [`docs/roadmap.md`](docs/roadmap.md) for what's done and what's next, and
 
 ## Packaging / releases
 
-One command builds every Linux package — `.deb` + `.rpm` for x86_64, arm64, and
-armv7 — into `./dist`, showing a step progress bar:
+Build `.deb` + `.rpm` with `cargo`. Package contents/deps come from
+`[package.metadata.deb]` and `[package.metadata.generate-rpm]` in `Cargo.toml`
+(ALSA is an automatic dependency; `fluidsynth` is recommended for MIDI).
+
+One-time tooling:
 
 ```sh
-cargo install cargo-deb cargo-generate-rpm cross   # one-time
-scripts/release.sh                                  # needs Docker for the ARM targets
+cargo install cargo-deb cargo-generate-rpm
 ```
 
-```text
-Building tanu release packages → ./dist
-[############------------------]  44% (4/9) aarch64: .deb
+**x86_64 (native)** — `.deb` + `.rpm`:
+
+```sh
+cargo build --release
+cargo deb --no-build                       # → target/debian/tanu_*_amd64.deb
+cargo generate-rpm                         # → target/generate-rpm/tanu-*.x86_64.rpm
 ```
 
-Native x86_64 builds with `cargo`; the ARM targets cross-compile through `cross`
-(Docker) — `Cross.toml` installs the target-arch ALSA dev libs in the build
-container. Package contents/deps are declared under `[package.metadata.deb]` and
-`[package.metadata.generate-rpm]` in `Cargo.toml` (ALSA is an automatic
-dependency; `fluidsynth` is recommended for MIDI). Output:
+**ARM** — cross-compile with [`cross`](https://github.com/cross-rs/cross)
+(needs Docker; `Cross.toml` installs the target ALSA dev libs in the container):
 
-```text
-tanu_1.12.0-1_amd64.deb   tanu-1.12.0-1.x86_64.rpm
-tanu_1.12.0-1_arm64.deb   tanu-1.12.0-1.aarch64.rpm
-tanu_1.12.0-1_armhf.deb   tanu-1.12.0-1.armv7hl.rpm
+```sh
+cargo install cross
+rustup target add aarch64-unknown-linux-gnu armv7-unknown-linux-gnueabihf
+
+# arm64 (aarch64) — .deb + .rpm
+cross build --release --target aarch64-unknown-linux-gnu
+cargo deb --no-build --no-strip --target aarch64-unknown-linux-gnu
+cargo generate-rpm --target aarch64-unknown-linux-gnu --auto-req no
+
+# armv7 (32-bit hard-float) — .deb + .rpm
+cross build --release --target armv7-unknown-linux-gnueabihf
+cargo deb --no-build --no-strip --target armv7-unknown-linux-gnueabihf
+cargo generate-rpm --target armv7-unknown-linux-gnueabihf --auto-req no
 ```
+
+`--auto-req no` on the cross rpms skips dependency scanning, which can't read a
+foreign-arch binary from the host.
 
 ## Layout
 

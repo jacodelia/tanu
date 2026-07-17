@@ -27,6 +27,8 @@ pub struct Equalizer {
     band_x: Vec<(u16, u16)>,
     /// Local y range of the slider track (rebuilt on render).
     track_y: (u16, u16),
+    /// Local hit region of the clickable preset button: (row, x_start, x_end).
+    preset_btn: (u16, u16, u16),
 }
 
 impl Equalizer {
@@ -41,13 +43,17 @@ impl Equalizer {
             preset_idx: 0,
             band_x: Vec::new(),
             track_y: (1, 2),
+            preset_btn: (0, 0, 0),
         }
     }
 
-    fn cycle_preset(&mut self) {
-        self.preset_idx = (self.preset_idx + 1) % PRESETS.len();
-        self.eq.set_all(PRESETS[self.preset_idx].1, 0.0);
-        self.dirty = true;
+    /// Apply the preset at `idx` (from the preset picker modal).
+    pub fn apply_preset(&mut self, idx: usize) {
+        if let Some((_, gains)) = PRESETS.get(idx) {
+            self.preset_idx = idx;
+            self.eq.set_all(*gains, 0.0);
+            self.dirty = true;
+        }
     }
 
     /// Set the selected band's gain from a local y within the track.
@@ -83,7 +89,7 @@ impl Widget for Equalizer {
             KeyCode::Right | KeyCode::Char('l') => { if self.selected + 1 < EQ_BANDS { self.selected += 1; self.dirty = true; } EventResult::Consumed }
             KeyCode::Up | KeyCode::Char('k') => { self.eq.adjust_gain(self.selected, 1.0); self.dirty = true; EventResult::Consumed }
             KeyCode::Down | KeyCode::Char('j') => { self.eq.adjust_gain(self.selected, -1.0); self.dirty = true; EventResult::Consumed }
-            KeyCode::Char('p') => { self.cycle_preset(); EventResult::Consumed }
+            KeyCode::Char('p') => EventResult::Event(Event::Command("eq_presets".into())),
             KeyCode::Char('r') => { self.preset_idx = 0; self.eq.set_all([0.0; EQ_BANDS], 0.0); self.dirty = true; EventResult::Consumed }
             KeyCode::Char('e') => { self.eq.toggle_enabled(); self.dirty = true; EventResult::Consumed }
             _ => EventResult::NotConsumed,
@@ -93,6 +99,11 @@ impl Widget for Equalizer {
     fn handle_mouse(&mut self, x: u16, y: u16, action: &MouseAction) -> EventResult {
         match action {
             MouseAction::Press(..) | MouseAction::Drag(..) | MouseAction::DoubleClick(..) => {
+                // Preset button in the title bar → open the preset modal.
+                let (by, x0, x1) = self.preset_btn;
+                if y == by && x >= x0 && x < x1 {
+                    return EventResult::Event(Event::Command("eq_presets".into()));
+                }
                 if let Some(band) = self.band_x.iter().position(|(s, e)| x >= *s && x < *e) {
                     self.selected = band;
                     self.set_gain_from_y(y);
@@ -118,11 +129,10 @@ impl Widget for Equalizer {
     fn render(&mut self, frame: &mut Frame, area: Rect) {
         let (gains, _preamp, enabled) = self.eq.snapshot();
         let border_color = if self.focused { crate::theme::border_focused() } else { crate::theme::border() };
-        let title = format!(
-            " ≣ EQ · {} · {}",
-            PRESETS[self.preset_idx].0,
-            if enabled { "on" } else { "OFF" }
-        );
+        // Clickable preset button in the title bar (opens the preset modal).
+        let title = format!(" ≣ {} ▾ · {} ", PRESETS[self.preset_idx].0, if enabled { "on" } else { "OFF" });
+        // Title sits on the top border starting at local col 1 (after the corner).
+        self.preset_btn = (0, 1, 1 + title.chars().count() as u16);
         // Numeric monitor of the band being moved: freq + signed dB.
         let f = EQ_FREQS[self.selected];
         let freq_label = if f >= 1000.0 { format!("{:.0}k", f / 1000.0) } else { format!("{:.0}", f) };
@@ -131,10 +141,10 @@ impl Widget for Equalizer {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .title(Span::styled(title, Style::default().fg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(title, Style::default().fg(Color::Rgb(30, 30, 46)).bg(crate::theme::primary()).add_modifier(Modifier::BOLD)))
             .title_top(Line::from(Span::styled(monitor, Style::default().fg(Color::Rgb(30, 30, 46)).bg(mon_color).add_modifier(Modifier::BOLD))).right_aligned())
             .title_bottom(Span::styled(
-                " ←→ band · ↑↓ dB · p preset · r flat · e on/off ",
+                " ←→ band · ↑↓ dB · p presets · r flat · e on/off ",
                 Style::default().fg(Color::Rgb(108, 112, 134)),
             ));
         let inner = block.inner(area);
@@ -226,10 +236,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_preset_cycle_sets_eq() {
+    fn test_apply_preset_sets_eq() {
         let eq = EqState::new();
         let mut w = Equalizer::new(eq.clone());
-        w.cycle_preset(); // → Rock
+        w.apply_preset(1); // → Classical (first non-flat)
         assert_eq!(w.preset_idx, 1);
         // Non-flat gains applied.
         assert!(eq.snapshot().0.iter().any(|&g| g.abs() > 0.1));

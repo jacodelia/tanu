@@ -45,8 +45,9 @@ radio-cassette transport deck — keyboard or mouse.
   16-band Goertzel spectrum analyzer with color-graded bars.
 - **10-band graphic equalizer** — real DSP that modifies the sound (cascaded RBJ
   peaking biquads, ±12 dB), Winamp-style sliders with presets, between the cover
-  and the scope. Drag a slider or use `←→` / `↑↓`; `p` cycles presets, `e` on/off.
-  A numeric monitor shows the band you're moving (freq + signed dB).
+  and the scope. Drag a slider or use `←→` / `↑↓`; `p` opens a modal to pick one
+  of the 18 original Winamp presets, `e` on/off. A numeric monitor shows the band
+  you're moving (freq + signed dB).
 - **Seek strip** — under the visualizer: the now-playing track name plus a
   `00:42 ████░░ 03:15` bar. Click or drag it to jump anywhere in the track.
 - **Album art** — folder images first (a file named `cover` always wins), else
@@ -93,7 +94,7 @@ terminal). Follow them with `tail -f ~/.local/share/tanu/tanu.log`.
 | `Space` | Play selected (if idle) / pause-resume |
 | `+` / `=` / `-` | Volume up / down |
 | EQ: `←`/`→` band, `↑`/`↓` ±dB | Adjust the focused equalizer band |
-| EQ: `p` / `r` / `e` | Cycle preset / flat / on-off |
+| EQ: `p` / `r` / `e` | Preset picker modal (18 Winamp presets) / flat / on-off |
 | Visualizer: `m` or `Tab` | Toggle WAVE / SPEC view |
 | `/` | Incremental search (Esc cancels, Enter keeps filter) |
 | `Ctrl+H` | Toggle hidden files |

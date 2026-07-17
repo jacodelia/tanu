@@ -60,6 +60,9 @@ pub struct AudioConfig {
 pub struct UiConfig {
     /// Theme name.
     pub theme: String,
+    /// Primary/accent typography color as `#rrggbb` (EDIT → Text Color).
+    #[serde(default)]
+    pub text_color: Option<String>,
     /// Mouse enabled.
     pub mouse_enabled: bool,
     /// Frame rate cap for rendering.
@@ -140,6 +143,7 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             theme: "default".to_string(),
+            text_color: None,
             mouse_enabled: true,
             max_fps: 60,
             show_status_bar: true,

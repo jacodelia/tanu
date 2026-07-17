@@ -113,7 +113,13 @@ impl App {
         use crate::config::BindingsConfig;
         use crate::theme::ThemeRegistry;
 
-        let theme = ThemeRegistry::new();
+        // Restore saved theme settings (theme name + accent/typography color).
+        let cfg = crate::config::Config::load_or_default(&Self::config_file_path());
+        let mut theme = ThemeRegistry::new();
+        let _ = theme.switch(&cfg.ui.theme); // ignore if the name is unknown
+        if let Some(ref hex) = cfg.ui.text_color {
+            crate::theme::set_primary_hex(hex);
+        }
         let mut screen = Screen::new(theme);
 
         let menu_bar = crate::widgets::menu_bar::MenuBar::new();
@@ -225,6 +231,19 @@ impl App {
         }
         if let Err(e) = cfg.save(&cfg_path) {
             tracing::warn!(error = %e, "Failed to save library dir");
+        }
+    }
+
+    /// Persist the selected theme name to the config file.
+    fn save_theme_name(name: &str) {
+        let cfg_path = Self::config_file_path();
+        let mut cfg = crate::config::Config::load_or_default(&cfg_path);
+        cfg.ui.theme = name.to_string();
+        if let Some(parent) = cfg_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Err(e) = cfg.save(&cfg_path) {
+            tracing::warn!(error = %e, "Failed to save theme");
         }
     }
 
@@ -966,11 +985,48 @@ impl App {
             return;
         }
 
+        // EQ preset picker: open a centered modal listing the Winamp presets.
+        if input == "eq_presets" {
+            let items: Vec<crate::widgets::context_menu::MenuItem> = crate::audio::eq::PRESETS
+                .iter()
+                .enumerate()
+                .map(|(i, (name, _))| crate::widgets::context_menu::MenuItem {
+                    label: (*name).to_string(),
+                    command: format!("eq_preset:{}", i),
+                })
+                .collect();
+            self.screen.show_modal_menu("EQ Preset", items);
+            self.screen.mark_dirty();
+            return;
+        }
+        // Apply a chosen EQ preset to the equalizer widget.
+        if let Some(idx) = input.strip_prefix("eq_preset:").and_then(|s| s.parse::<usize>().ok()) {
+            if let Some(w) = self.screen.widget_at_mut(Slot::Eq) {
+                let any = w.as_mut() as &mut dyn Any;
+                if let Some(eq) = any.downcast_mut::<crate::widgets::equalizer::Equalizer>() {
+                    eq.apply_preset(idx);
+                }
+            }
+            self.screen.mark_dirty();
+            return;
+        }
+
         // Typography color (EDIT → Text Color). Sets the global primary/accent
         // color used by panel titles and the brand; redraw everything.
         if let Some(hex) = input.strip_prefix("text_color:") {
-            if crate::theme::set_primary_hex(hex.trim()) {
+            let hex = hex.trim();
+            if crate::theme::set_primary_hex(hex) {
                 self.screen.mark_dirty();
+                // Persist so the choice survives restarts.
+                let cfg_path = Self::config_file_path();
+                let mut cfg = crate::config::Config::load_or_default(&cfg_path);
+                cfg.ui.text_color = Some(hex.to_string());
+                if let Some(parent) = cfg_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                if let Err(e) = cfg.save(&cfg_path) {
+                    tracing::warn!(error = %e, "Failed to save text color");
+                }
             }
             return;
         }
@@ -1152,6 +1208,7 @@ impl App {
                         match self.screen.theme_mut().switch(name) {
                             Ok(()) => {
                                 self.screen.mark_dirty();
+                                Self::save_theme_name(name);
                                 Ok(())
                             }
                             Err(e) => Err(e.to_string()),

@@ -6,5 +6,6 @@
 pub mod backend;
 pub mod decoder;
 pub mod eq;
+pub mod flac_source;
 pub mod replaygain;
 pub mod viz;

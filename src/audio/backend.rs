@@ -19,6 +19,7 @@ pub type SharedSoundFont = Arc<Mutex<Option<PathBuf>>>;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 
 use super::eq::{EqSource, EqState};
+use super::flac_source::FlacSource;
 use super::viz::{AudioViz, TappedSource};
 use crate::player::AudioBackend;
 
@@ -26,6 +27,9 @@ use crate::player::AudioBackend;
 struct RodioInner {
     sink: Option<Sink>,
     current_duration: f64,
+    /// Audio file currently loaded (None for MIDI). Used to rebuild the decode
+    /// chain when in-place seeking isn't supported by the decoder (e.g. FLAC).
+    current_path: Option<PathBuf>,
     volume: f32,
     playing: bool,
     paused: bool,
@@ -185,6 +189,13 @@ fn is_midi(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn is_flac(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("flac"))
+        .unwrap_or(false)
+}
+
 /// Locate a General-MIDI SoundFont: `$TANU_SOUNDFONT`, else the best `*.sf2` in
 /// common dirs. Prefers full-GM banks (name contains "gm"/"general") and avoids
 /// drum-kit fonts (e.g. `*_LV2.sf2`, names with "drum"/"perc") so melodic parts
@@ -282,6 +293,7 @@ impl RodioBackend {
             inner: Mutex::new(RodioInner {
                 sink: None,
                 current_duration: 0.0,
+                current_path: None,
                 volume: 0.8,
                 playing: false,
                 paused: false,
@@ -290,27 +302,48 @@ impl RodioBackend {
             }),
         })
     }
+
+    /// Build the playback chain (decode → EQ → viz tap), optionally skipping
+    /// `skip_secs` from the start, and install it as the active sink.
+    fn spawn<S>(&self, decoder: S, skip_secs: f64, inner: &mut RodioInner) -> anyhow::Result<()>
+    where
+        S: rodio::Source<Item = i16> + Send + 'static,
+    {
+        use rodio::Source;
+        // Chain: decode → EQ (modifies sound) → tap (viz shows post-EQ audio).
+        let eqd = EqSource::new(decoder, self.eq.clone());
+        let source = TappedSource::new(eqd, self.viz.clone());
+        let sink = Sink::try_new(&self.handle)?;
+        sink.set_volume(inner.volume);
+        if skip_secs > 0.0 {
+            sink.append(source.skip_duration(std::time::Duration::from_secs_f64(skip_secs)));
+        } else {
+            sink.append(source);
+        }
+        inner.sink = Some(sink); // dropping the old sink stops previous playback
+        Ok(())
+    }
 }
 
 impl AudioBackend for RodioBackend {
     fn play(&self, path: &Path) -> anyhow::Result<()> {
+        self.viz.on_play();
+        let mut inner = self.inner.lock().unwrap();
+
         // MIDI: rodio/symphonia can't decode it. Render to PCM (WAV) via
         // fluidsynth, then play that through the normal pipeline — so seek, EQ,
         // and the oscilloscope all work exactly like any audio file.
-        let (decoder, duration): (Decoder<BufReader<File>>, f64) = if is_midi(path) {
+        let duration = if is_midi(path) {
             let sf2 = self.soundfont.lock().unwrap().clone()
                 .filter(|p| p.is_file())
                 .or_else(find_soundfont)
                 .ok_or_else(|| anyhow::anyhow!("No SoundFont (.sf2) found. Pick one from EDIT → SoundFont or set $TANU_SOUNDFONT."))?;
-            let gain = self.inner.lock().unwrap().volume;
-            let file = render_midi_to_pcm(&sf2, path, gain)?;
+            let file = render_midi_to_pcm(&sf2, path, inner.volume)?;
             let decoder = Decoder::new(BufReader::new(file))?;
             use rodio::Source;
-            let dur = decoder
-                .total_duration()
-                .map(|d| d.as_secs_f64())
-                .unwrap_or(0.0);
-            (decoder, dur)
+            let dur = decoder.total_duration().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+            self.spawn(decoder, 0.0, &mut inner)?;
+            dur
         } else {
             // Duration from metadata (fast: reads headers, no full decode).
             let duration = lofty::read_from_path(path)
@@ -320,22 +353,22 @@ impl AudioBackend for RodioBackend {
                     f.properties().duration().as_secs_f64()
                 })
                 .unwrap_or(0.0);
-            let file = File::open(path)?;
-            (Decoder::new(BufReader::new(file))?, duration)
+            // FLAC via our seekable symphonia source (rodio's can't seek FLAC);
+            // everything else via rodio's decoder.
+            if is_flac(path) {
+                self.spawn(FlacSource::open(path)?, 0.0, &mut inner)?;
+            } else {
+                self.spawn(Decoder::new(BufReader::new(File::open(path)?))?, 0.0, &mut inner)?;
+            }
+            duration
         };
 
-        self.viz.on_play();
-        // Chain: decode → EQ (modifies sound) → tap (viz shows post-EQ audio).
-        let eqd = EqSource::new(decoder, self.eq.clone());
-        let source = TappedSource::new(eqd, self.viz.clone());
-
-        let sink = Sink::try_new(&self.handle)?;
-        sink.set_volume(self.inner.lock().unwrap().volume);
-        sink.append(source);
-
-        let mut inner = self.inner.lock().unwrap();
-        inner.sink = Some(sink); // dropping the old sink stops previous playback
         inner.current_duration = duration;
+        inner.current_path = if is_midi(path) {
+            None // rendered PCM is gone; MIDI/WAV seeks in place anyway
+        } else {
+            Some(path.to_path_buf())
+        };
         inner.playing = true;
         inner.paused = false;
         inner.started_at = Some(Instant::now());
@@ -381,6 +414,7 @@ impl AudioBackend for RodioBackend {
         inner.started_at = None;
         inner.elapsed_before_pause = 0.0;
         inner.current_duration = 0.0;
+        inner.current_path = None;
         self.viz.on_stop();
     }
 
@@ -392,10 +426,27 @@ impl AudioBackend for RodioBackend {
         } else {
             pos
         };
-        if let Some(ref sink) = inner.sink {
-            // WAV/PCM (incl. rendered MIDI) seeks both directions; some streamed
-            // codecs may not — best-effort.
-            let _ = sink.try_seek(std::time::Duration::from_secs_f64(clamped));
+        // WAV/PCM (incl. rendered MIDI) and MP3 seek in place. FLAC's rodio
+        // decoder can't seek without a seektable, so on failure rebuild the
+        // chain from the file and skip forward — works for any format.
+        let in_place_ok = inner
+            .sink
+            .as_ref()
+            .map(|s| s.try_seek(std::time::Duration::from_secs_f64(clamped)).is_ok())
+            .unwrap_or(false);
+        if !in_place_ok {
+            if let Some(path) = inner.current_path.clone() {
+                if let Ok(decoder) = File::open(&path).map_err(anyhow::Error::from).and_then(|f| {
+                    Decoder::new(BufReader::new(f)).map_err(anyhow::Error::from)
+                }) {
+                    let was_paused = inner.paused;
+                    if self.spawn(decoder, clamped, &mut inner).is_ok() && was_paused {
+                        if let Some(s) = &inner.sink {
+                            s.pause();
+                        }
+                    }
+                }
+            }
         }
         inner.elapsed_before_pause = clamped;
         inner.started_at = if inner.paused {

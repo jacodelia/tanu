@@ -134,9 +134,6 @@ Optional feature flags: `http-plugins` (reqwest), `wasm-plugins` (wasmtime).
 (major/minor from `Cargo.toml`, build auto-incremented every build and stored in
 the gitignored `.build_number`), e.g. `v1.12.193`. Shown in the About modal.
 
-See [`docs/roadmap.md`](docs/roadmap.md) for what's done and what's next, and
-[`docs/adr.md`](docs/adr.md) for architecture decisions.
-
 ## Packaging / releases
 
 Build `.deb` + `.rpm` with `cargo`. Package contents/deps come from
@@ -177,6 +174,53 @@ cargo generate-rpm --target armv7-unknown-linux-gnueabihf --auto-req no
 
 `--auto-req no` on the cross rpms skips dependency scanning, which can't read a
 foreign-arch binary from the host.
+
+The Windows and macOS installers below **must build on their own OS** — the
+`.msi` needs the WiX toolset and the `.dmg` needs `hdiutil`, neither of which
+exists on Linux. The easiest way to get every artifact is to **push a `v*` tag**
+and let [`.github/workflows/release.yml`](.github/workflows/release.yml) build
+them on GitHub's Windows/macOS runners and upload them to the release. The
+commands below are what that workflow runs, if you want to reproduce one locally
+on the matching OS.
+
+**Windows** (run on Windows) — `.zip` + `.msi`:
+
+```sh
+rustup target add x86_64-pc-windows-msvc
+cargo build --release --target x86_64-pc-windows-msvc
+
+# .zip (portable) — bundles binary + docs
+7z a tanu-windows.zip ./target/x86_64-pc-windows-msvc/release/tanu.exe README.md LICENSE
+
+# .msi installer (needs the WiX Toolset on PATH)
+cargo install cargo-wix
+cargo wix init --force
+cargo wix --no-build --nocapture --target x86_64-pc-windows-msvc --output tanu.msi
+```
+
+**Windows `.exe` from Linux** — cross-compile with `cross` + Docker (GNU target,
+no MSVC/WiX; produces the portable `.exe`/`.zip`, not the `.msi`):
+
+```sh
+cross build --release --target x86_64-pc-windows-gnu
+zip -j tanu-windows.zip target/x86_64-pc-windows-gnu/release/tanu.exe README.md LICENSE
+```
+
+**macOS** (run on macOS) — `.tar.gz` + `.dmg`:
+
+```sh
+# Intel: x86_64-apple-darwin   Apple Silicon: aarch64-apple-darwin
+rustup target add aarch64-apple-darwin
+cargo build --release --target aarch64-apple-darwin
+
+# .tar.gz — binary + docs
+tar czf tanu-macos.tar.gz -C target/aarch64-apple-darwin/release tanu -C "$PWD" README.md LICENSE
+
+# .dmg (TUI binary, no .app bundle)
+mkdir -p dmg/Tanu
+cp target/aarch64-apple-darwin/release/tanu README.md LICENSE dmg/Tanu/
+hdiutil create -volname Tanu -srcfolder dmg/Tanu -ov -format UDZO tanu.dmg
+```
 
 ## Layout
 

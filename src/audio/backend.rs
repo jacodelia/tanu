@@ -341,7 +341,10 @@ impl AudioBackend for RodioBackend {
             let file = render_midi_to_pcm(&sf2, path, inner.volume)?;
             let decoder = Decoder::new(BufReader::new(file))?;
             use rodio::Source;
-            let dur = decoder.total_duration().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+            let dur = decoder
+                .total_duration()
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
             self.spawn(decoder, 0.0, &mut inner)?;
             dur
         } else {
@@ -358,7 +361,11 @@ impl AudioBackend for RodioBackend {
             if is_flac(path) {
                 self.spawn(FlacSource::open(path)?, 0.0, &mut inner)?;
             } else {
-                self.spawn(Decoder::new(BufReader::new(File::open(path)?))?, 0.0, &mut inner)?;
+                self.spawn(
+                    Decoder::new(BufReader::new(File::open(path)?))?,
+                    0.0,
+                    &mut inner,
+                )?;
             }
             duration
         };
@@ -432,13 +439,17 @@ impl AudioBackend for RodioBackend {
         let in_place_ok = inner
             .sink
             .as_ref()
-            .map(|s| s.try_seek(std::time::Duration::from_secs_f64(clamped)).is_ok())
+            .map(|s| {
+                s.try_seek(std::time::Duration::from_secs_f64(clamped))
+                    .is_ok()
+            })
             .unwrap_or(false);
         if !in_place_ok {
             if let Some(path) = inner.current_path.clone() {
-                if let Ok(decoder) = File::open(&path).map_err(anyhow::Error::from).and_then(|f| {
-                    Decoder::new(BufReader::new(f)).map_err(anyhow::Error::from)
-                }) {
+                if let Ok(decoder) = File::open(&path)
+                    .map_err(anyhow::Error::from)
+                    .and_then(|f| Decoder::new(BufReader::new(f)).map_err(anyhow::Error::from))
+                {
                     let was_paused = inner.paused;
                     if self.spawn(decoder, clamped, &mut inner).is_ok() && was_paused {
                         if let Some(s) = &inner.sink {

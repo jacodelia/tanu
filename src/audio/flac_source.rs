@@ -55,12 +55,8 @@ impl FlacSource {
             ..Default::default()
         };
         let metadata_opts: MetadataOptions = Default::default();
-        let probed = symphonia::default::get_probe().format(
-            &hint,
-            mss,
-            &format_opts,
-            &metadata_opts,
-        )?;
+        let probed =
+            symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts)?;
         let mut format = probed.format;
 
         let track = match format
@@ -126,7 +122,9 @@ impl FlacSource {
             let candidate = self
                 .format
                 .next_packet()
-                .map_err(|_| SeekError::NotSupported { underlying_source: "flac" })?;
+                .map_err(|_| SeekError::NotSupported {
+                    underlying_source: "flac",
+                })?;
             if candidate.dur() > samples_to_pass {
                 break candidate;
             }
@@ -138,11 +136,15 @@ impl FlacSource {
                 let packet = self
                     .format
                     .next_packet()
-                    .map_err(|_| SeekError::NotSupported { underlying_source: "flac" })?;
+                    .map_err(|_| SeekError::NotSupported {
+                        underlying_source: "flac",
+                    })?;
                 decoded = self.decoder.decode(&packet);
             }
         }
-        let decoded = decoded.map_err(|_| SeekError::NotSupported { underlying_source: "flac" })?;
+        let decoded = decoded.map_err(|_| SeekError::NotSupported {
+            underlying_source: "flac",
+        })?;
         decoded.spec().clone_into(&mut self.spec);
         self.buffer = Self::get_buffer(decoded, &self.spec);
         self.current_frame_offset = samples_to_pass as usize * self.channels() as usize;
@@ -209,7 +211,9 @@ impl Source for FlacSource {
                     track_id: None,
                 },
             )
-            .map_err(|_| SeekError::NotSupported { underlying_source: "flac" })?;
+            .map_err(|_| SeekError::NotSupported {
+                underlying_source: "flac",
+            })?;
         self.decoder.reset();
         self.refine_position(seek_res)?;
         self.current_frame_offset += to_skip;
